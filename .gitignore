@@ -1,3 +1,6 @@
 *.artifact.json
 critique.json
 .od-skills/
+
+.vercel
+.env*
