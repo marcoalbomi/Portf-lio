@@ -1608,8 +1608,14 @@
       };
     }
 
-    async function syncProjectsFromSB() {
+    async function syncProjectsFromSB(force) {
       try {
+        var localRaw = localStorage.getItem('od_portfolio_projects');
+        /* Se já tem dados locais e não é força, preserva localStorage (evita sobrescrever com dados obsoletos) */
+        if (localRaw && localRaw !== '[]' && !force) {
+          console.log('[Supabase] syncProjectsFromSB() — skipping (local data exists). Use force=true to override.');
+          return;
+        }
         console.log('[Supabase] syncProjectsFromSB() — fetching from server...');
         const data = await sbGet('/rest/v1/portfolio_projects?select=*&order=sort_order.asc');
         if (data && data.length > 0) {
@@ -1626,8 +1632,13 @@
       } catch(e) { console.warn('[Supabase] sync projects failed:', e); }
     }
 
-    async function syncConfigFromSB() {
+    async function syncConfigFromSB(force) {
       try {
+        var localRaw = localStorage.getItem('od_portfolio_config');
+        if (localRaw && localRaw !== '{}' && !force) {
+          console.log('[Supabase] syncConfigFromSB() — skipping (local data exists)');
+          return;
+        }
         const data = await sbGet('/rest/v1/portfolio_config?select=key,value');
         if (data && data.length > 0) {
           const cfg = {};
@@ -1641,8 +1652,13 @@
       } catch(e) { console.warn('Supabase sync config failed:', e); }
     }
 
-    async function syncMessagesFromSB() {
+    async function syncMessagesFromSB(force) {
       try {
+        var localRaw = localStorage.getItem('od_portfolio_messages');
+        if (localRaw && localRaw !== '[]' && !force) {
+          console.log('[Supabase] syncMessagesFromSB() — skipping (local data exists)');
+          return;
+        }
         const data = await sbGet('/rest/v1/portfolio_messages?select=*&order=created_at.desc');
         if (data && data.length > 0) {
           localStorage.setItem('od_portfolio_messages', JSON.stringify(data));
@@ -1654,6 +1670,15 @@
 
     async function syncAllFromSB() {
       await Promise.all([syncProjectsFromSB(), syncConfigFromSB(), syncMessagesFromSB()]);
+    }
+    async function forceSyncAllFromSB() {
+      localStorage.removeItem('od_portfolio_projects');
+      localStorage.removeItem('od_portfolio_config');
+      localStorage.removeItem('od_portfolio_messages');
+      await Promise.all([syncProjectsFromSB(true), syncConfigFromSB(true), syncMessagesFromSB(true)]);
+      if (typeof loadProjects === 'function') loadProjects();
+      if (typeof buildSlides === 'function') buildSlides();
+      if (typeof showToast === 'function') showToast('Dados sincronizados do servidor');
     }
 
     async function saveProjectsToSB() {
@@ -1983,7 +2008,13 @@ function resolveMediaUrl(item) {
 
     function saveProjects() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-      if (typeof saveProjectsToSB === 'function') saveProjectsToSB().catch(function(e){ if (typeof showToast === 'function') showToast('Servidor offline — salvo apenas localmente'); console.warn('saveProjects:', e); });
+      if (typeof saveProjectsToSB === 'function') saveProjectsToSB().then(function() {
+        localStorage.setItem('od_sb_projects_ok', '1');
+      }).catch(function(e) {
+        localStorage.removeItem('od_sb_projects_ok');
+        if (typeof showToast === 'function') showToast('Servidor offline — salvo apenas localmente');
+        console.warn('[Supabase] saveProjects catch:', e);
+      });
     }
 
     async function migrateProjectsData() {
@@ -2573,7 +2604,7 @@ function resolveMediaUrl(item) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
         Testar Supabase
       </button>`;
-      html += `<button class="btn" onclick="syncAllFromSB();setTimeout(function(){rebuildAll();showToast('Sincronizado com servidor')},1500)" style="color:var(--success);border-color:var(--success)">
+      html += `<button class="btn" onclick="forceSyncAllFromSB()" style="color:var(--success);border-color:var(--success)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         Sincronizar
       </button>`;
@@ -2628,7 +2659,7 @@ function resolveMediaUrl(item) {
       html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><h3 style="font-size:18px;font-weight:600">Mensagens Recebidas</h3><button class="btn" onclick="clearAllMessages()" style="color:var(--danger);border-color:var(--danger);font-size:12px;padding:6px 12px">Limpar tudo</button></div>';
       html += '<p style="color:var(--muted);font-size:13px;margin-bottom:16px">Mensagens enviadas pelo formulário de contato do portfólio.</p>';
       html += '<div id="messagesList"></div>';
-      html += '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap"><button class="btn" onclick="cancelMessagesPanel()">Fechar</button><button class="btn" onclick="exportMessagesJSON()" style="color:var(--accent);border-color:var(--accent)">Exportar JSON</button><button class="btn" onclick="syncAllFromSB();showToast(\'Sincronizando com servidor…\');renderMessagesList()" style="color:var(--success);border-color:var(--success)">Sincronizar</button></div>';
+      html += '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap"><button class="btn" onclick="cancelMessagesPanel()">Fechar</button><button class="btn" onclick="exportMessagesJSON()" style="color:var(--accent);border-color:var(--accent)">Exportar JSON</button><button class="btn" onclick="forceSyncAllFromSB();setTimeout(function(){renderMessagesList()},500)" style="color:var(--success);border-color:var(--success)">Sincronizar</button></div>';
       html += '</div>';
 
       html += '<div class="admin-form" id="configForm" style="display:none">';
