@@ -88,6 +88,42 @@ DROP POLICY IF EXISTS "anon_all_messages" ON public.portfolio_messages;
 CREATE POLICY "anon_all_messages" ON public.portfolio_messages
   FOR ALL USING (true) WITH CHECK (true);
 
+-- ═════════════════════════════════════════════════════════
+-- STORAGE BUCKET: project-covers
+-- ═════════════════════════════════════════════════════════
+
+-- 4. Criar bucket de storage para imagens de capa dos projetos
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES ('project-covers', 'project-covers', true, 5242880, '{"image/jpeg","image/png","image/webp","image/gif"}')
+ON CONFLICT (id) DO NOTHING;
+
+-- 5. RLS Policies para o bucket project-covers
+-- Permite leitura anônima (necessário para exibir imagens)
+DROP POLICY IF EXISTS "Public Read project-covers" ON storage.objects;
+CREATE POLICY "Public Read project-covers" ON storage.objects
+  FOR SELECT USING (bucket_id = 'project-covers');
+
+-- Permite inserção anônima (upload de imagens do frontend)
+DROP POLICY IF EXISTS "Public Insert project-covers" ON storage.objects;
+CREATE POLICY "Public Insert project-covers" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'project-covers');
+
+-- Permite atualização anônima
+DROP POLICY IF EXISTS "Public Update project-covers" ON storage.objects;
+CREATE POLICY "Public Update project-covers" ON storage.objects
+  FOR UPDATE USING (bucket_id = 'project-covers') WITH CHECK (bucket_id = 'project-covers');
+
+-- Permite exclusão anônima (necessário para o delete-all-then-insert)
+DROP POLICY IF EXISTS "Public Delete project-covers" ON storage.objects;
+CREATE POLICY "Public Delete project-covers" ON storage.objects
+  FOR DELETE USING (bucket_id = 'project-covers');
+
+-- ═════════════════════════════════════════════════════════
+-- VERIFICAÇÃO
+-- ═════════════════════════════════════════════════════════
+-- Após executar tudo, rode esta consulta para confirmar:
+-- SELECT * FROM storage.buckets WHERE id = 'project-covers';
+
 -- ── (Opcional) Criar função edge de ping para teste ──
 CREATE OR REPLACE FUNCTION public.ping()
 RETURNS TEXT LANGUAGE sql AS $$ SELECT 'pong'::TEXT; $$;

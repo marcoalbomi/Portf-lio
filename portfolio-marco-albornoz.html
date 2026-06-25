@@ -1571,6 +1571,30 @@
     function sbPost(path, body) { return sbFetch(path, { method: 'POST', body: JSON.stringify(body) }).then(function(r) { if (!r.ok) throw new Error('POST ' + path + ' ' + r.status); }); }
     function sbDelete(path) { return sbFetch(path, { method: 'DELETE' }).then(function(r) { if (!r.ok) throw new Error('DELETE ' + path + ' ' + r.status); }); }
 
+    /* ── Storage helpers — upload dataUrl images to Supabase Storage ── */
+    function dataUrlToBlob(dataUrl) {
+      var parts = dataUrl.split(',');
+      var mimeMatch = parts[0].match(/:(.*?);/);
+      if (!mimeMatch) return null;
+      var bytes = atob(parts[1]);
+      var arr = new Uint8Array(bytes.length);
+      for (var i2 = 0; i2 < bytes.length; i2++) arr[i2] = bytes.charCodeAt(i2);
+      return new Blob([arr], { type: mimeMatch[1] });
+    }
+    async function uploadCover(dataUrl, idx) {
+      var blob = dataUrlToBlob(dataUrl);
+      if (!blob) throw new Error('Invalid dataUrl');
+      var ext = (blob.type.split('/')[1] || 'png').replace(/[^a-z0-9]/gi, '');
+      var path = 'cover_' + idx + '_' + Date.now() + '.' + ext;
+      var resp = await fetch(SB_URL + '/storage/v1/object/project-covers/' + path, {
+        method: 'POST',
+        headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': blob.type, 'x-upsert': 'true' },
+        body: blob
+      });
+      if (!resp.ok) { var txt = await resp.text().catch(function(){}); throw new Error('Storage upload ' + resp.status + ': ' + (txt||'')); }
+      return SB_URL + '/storage/v1/object/public/project-covers/' + path;
+    }
+
     function tryParseJSON(str) {
       try { return JSON.parse(str); } catch { return str; }
     }
@@ -1638,9 +1662,16 @@
       if (!projects) return;
       try {
         await sbDelete('/rest/v1/portfolio_projects?id=gte.0');
-        var rows = projects.map(function(p, i) {
-          return { title: p.title||'', category: p.tag||'', description: p.desc||'', image: p.cover||'', link: '', sort_order: i };
-        });
+        var rows = [];
+        for (var i = 0; i < projects.length; i++) {
+          var p = projects[i];
+          var imgUrl = p.cover || '';
+          if (imgUrl.startsWith('data:')) {
+            try { imgUrl = await uploadCover(imgUrl, i); }
+            catch(e) { console.warn('Cover upload failed for project', i, '— saving without image:', e); imgUrl = ''; }
+          }
+          rows.push({ title: p.title||'', category: p.tag||'', description: p.desc||'', image: imgUrl, link: '', sort_order: i });
+        }
         if (rows.length === 0) return;
         await sbPost('/rest/v1/portfolio_projects', rows);
         if (typeof showToast === 'function') showToast('Projetos salvos no servidor');
