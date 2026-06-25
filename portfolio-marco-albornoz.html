@@ -1710,7 +1710,7 @@
 
     function saveConfig() {
       localStorage.setItem(CONFIG_KEY, JSON.stringify(siteConfig));
-      saveConfigToSB(); /* fire and forget — errors logged internally */
+      if (typeof saveConfigToSB === 'function') saveConfigToSB().catch(function(){});
     }
 
     function getConfig() {
@@ -1914,7 +1914,7 @@ function resolveMediaUrl(item) {
 
     function saveProjects() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-      saveProjectsToSB();
+      if (typeof saveProjectsToSB === 'function') saveProjectsToSB().catch(function(){});
     }
 
     async function migrateProjectsData() {
@@ -2770,7 +2770,7 @@ function resolveMediaUrl(item) {
     }
     function saveMessages(msgs) {
       localStorage.setItem('od_portfolio_messages', JSON.stringify(msgs));
-      saveMessagesToSB();
+      if (typeof saveMessagesToSB === 'function') saveMessagesToSB().catch(function(){});
     }
     function renderMessagesList() {
       const c = document.getElementById('messagesList');
@@ -3464,24 +3464,13 @@ function resolveMediaUrl(item) {
       }
     });
 
-    /* ── Polling: sync from Supabase every 15s ── */
-    var sbPollTimer = null;
-    function startSBPoll() {
-      stopSBPoll();
-      sbPollTimer = setInterval(function() {
-        syncAllFromSB();
-      }, 15000);
-    }
-    function stopSBPoll() { if (sbPollTimer) { clearInterval(sbPollTimer); sbPollTimer = null; } }
-
     document.addEventListener('DOMContentLoaded', async () => {
-      await MediaDB.init();
-      await syncAllFromSB();
+      await MediaDB.init().catch(function(){});
+      syncAllFromSB();
       loadProjects();
       await migrateProjectsData();
       buildSlides();
       initDragScroll();
-      startSBPoll();
 
       /* ── Click on carousel card → open project overlay ── */
       const container = document.getElementById('carouselContainer');
