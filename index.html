@@ -1610,24 +1610,24 @@
 
     async function syncProjectsFromSB() {
       try {
-        const existing = localStorage.getItem(STORAGE_KEY);
-        if (existing && existing !== '[]' && existing !== 'null') return; /* local data is newer */
+        console.log('[Supabase] syncProjectsFromSB() — fetching from server...');
         const data = await sbGet('/rest/v1/portfolio_projects?select=*&order=sort_order.asc');
         if (data && data.length > 0) {
           const mapped = data.map(remapProjectFromDB);
           localStorage.setItem('od_portfolio_projects', JSON.stringify(mapped));
+          console.log('[Supabase] syncProjectsFromSB() — loaded', mapped.length, 'projects from server');
           if (typeof projects !== 'undefined') {
             projects = mapped;
             if (typeof buildSlides === 'function') buildSlides();
           }
+        } else {
+          console.log('[Supabase] syncProjectsFromSB() — server returned empty');
         }
-      } catch(e) { console.warn('Supabase sync projects failed:', e); }
+      } catch(e) { console.warn('[Supabase] sync projects failed:', e); }
     }
 
     async function syncConfigFromSB() {
       try {
-        const existing = localStorage.getItem('od_portfolio_config');
-        if (existing && existing !== '{}' && existing !== 'null') return;
         const data = await sbGet('/rest/v1/portfolio_config?select=key,value');
         if (data && data.length > 0) {
           const cfg = {};
@@ -1643,8 +1643,6 @@
 
     async function syncMessagesFromSB() {
       try {
-        const existing = localStorage.getItem('od_portfolio_messages');
-        if (existing && existing !== '[]' && existing !== 'null') return;
         const data = await sbGet('/rest/v1/portfolio_messages?select=*&order=created_at.desc');
         if (data && data.length > 0) {
           localStorage.setItem('od_portfolio_messages', JSON.stringify(data));
@@ -1659,25 +1657,44 @@
     }
 
     async function saveProjectsToSB() {
-      if (!projects) return;
+      console.log('[Supabase] saveProjectsToSB() started — projects.length =', projects ? projects.length : 'undefined');
+      if (!projects) { console.log('[Supabase] projects is falsy, aborting'); return; }
       try {
+        console.log('[Supabase] Deleting all existing projects...');
         await sbDelete('/rest/v1/portfolio_projects?id=gte.0');
+        console.log('[Supabase] DELETE OK. Building rows...');
         var rows = [];
         for (var i = 0; i < projects.length; i++) {
           var p = projects[i];
           var imgUrl = p.cover || '';
-          if (imgUrl.startsWith('data:')) {
-            try { imgUrl = await uploadCover(imgUrl, i); }
-            catch(e) { console.warn('Cover upload failed for project', i, '— saving without image:', e); imgUrl = ''; }
+          console.log('[Supabase] Project', i, '— title:', p.title, 'cover type:', typeof imgUrl, imgUrl ? imgUrl.substring(0, 50) : '(empty)');
+          if (imgUrl.startsWith('http')) {
+            console.log('[Supabase] Project', i, '— cover already has URL, keeping as-is');
+          } else if (imgUrl.startsWith('data:')) {
+            console.log('[Supabase] Project', i, '— cover is dataUrl, attempting upload...');
+            try { imgUrl = await uploadCover(imgUrl, i); console.log('[Supabase] Upload OK — URL:', imgUrl ? imgUrl.substring(0, 60) : '(empty)'); }
+            catch(e) { console.warn('[Supabase] Cover upload FAILED for project', i, e); imgUrl = ''; }
+          } else if (imgUrl && !imgUrl.startsWith('http') && !imgUrl.startsWith('data:')) {
+            console.log('[Supabase] Project', i, '— cover is MediaDB ID, resolving to dataUrl...');
+            try {
+              var dataUrlFromDB = await MediaDB.getDataUrl(imgUrl);
+              if (dataUrlFromDB) {
+                console.log('[Supabase] Resolved MediaDB to dataUrl, uploading...');
+                imgUrl = await uploadCover(dataUrlFromDB, i);
+                console.log('[Supabase] MediaDB upload OK — URL:', imgUrl ? imgUrl.substring(0, 60) : '(empty)');
+              } else { console.warn('[Supabase] MediaDB ID not found locally'); imgUrl = ''; }
+            } catch(e2) { console.warn('[Supabase] MediaDB resolve/upload failed:', e2); imgUrl = ''; }
           }
           rows.push({ title: p.title||'', category: p.tag||'', description: p.desc||'', image: imgUrl, link: '', sort_order: i });
         }
-        if (rows.length === 0) return;
+        if (rows.length === 0) { console.log('[Supabase] No rows to save, aborting'); return; }
+        console.log('[Supabase] POSTING', rows.length, 'rows to Supabase...', JSON.stringify(rows.map(function(r) { return { title: r.title, image: r.image ? r.image.substring(0, 40) : '(empty)' }; })));
         await sbPost('/rest/v1/portfolio_projects', rows);
+        console.log('[Supabase] POST OK — projects saved successfully');
         if (typeof showToast === 'function') showToast('Projetos salvos no servidor');
       } catch(e) {
-        console.warn('Supabase save projects failed:', e);
-        if (typeof showToast === 'function') showToast('Erro ao salvar projetos no servidor');
+        console.error('[Supabase] saveProjectsToSB FAILED:', e);
+        if (typeof showToast === 'function') showToast('Erro ao salvar projetos no servidor: ' + e.message);
       }
     }
 
@@ -1717,6 +1734,21 @@
         }
       }
     });
+    function testSupabase() {
+      var btn = event && event.target ? event.target.closest('button') : null;
+      if (btn) btn.textContent = 'Testando...';
+      sbGet('/rest/v1/portfolio_projects?select=count').then(function(d) {
+        var msg = 'Supabase OK! Projetos: ' + JSON.stringify(d);
+        console.log('[Supabase] Diagnostic:', msg);
+        if (typeof showToast === 'function') showToast('Supabase OK!');
+        else alert(msg);
+      }).catch(function(e) {
+        var msg = 'Falha no Supabase: ' + e.message;
+        console.error('[Supabase] Diagnostic:', msg);
+        if (typeof showToast === 'function') showToast(msg);
+        else alert(msg);
+      }).finally(function() { if (btn) btn.textContent = 'Testar Supabase'; });
+    }
   </script>
   <script>
     const STORAGE_KEY = 'od_portfolio_projects';
@@ -2535,6 +2567,10 @@ function resolveMediaUrl(item) {
       html += `<button class="btn" onclick="showImportLink()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         Importar Link
+      </button>`;
+      html += `<button class="btn" onclick="testSupabase()" style="color:#FF5000;border-color:#FF5000">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        Testar Supabase
       </button>`;
       html += `<button class="btn" onclick="syncAllFromSB();setTimeout(function(){rebuildAll();showToast('Sincronizado com servidor')},1500)" style="color:var(--success);border-color:var(--success)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
@@ -3502,7 +3538,7 @@ function resolveMediaUrl(item) {
 
     document.addEventListener('DOMContentLoaded', async () => {
       await MediaDB.init().catch(function(){});
-      syncAllFromSB();
+      await syncAllFromSB();
       loadProjects();
       await migrateProjectsData();
       buildSlides();
