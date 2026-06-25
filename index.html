@@ -3463,11 +3463,12 @@ function resolveMediaUrl(item) {
       }
     });
 
-    document.addEventListener('DOMContentLoaded', async () => {
-      await MediaDB.init().catch(function(){});
+    document.addEventListener('DOMContentLoaded', function() {
+      try {
+      MediaDB.init().catch(function(){});
       syncAllFromSB();
       loadProjects();
-      await migrateProjectsData();
+      migrateProjectsData();
       buildSlides();
       initDragScroll();
 
@@ -3675,6 +3676,7 @@ function resolveMediaUrl(item) {
       document.addEventListener('change', (e) => {
         if (e.target.id === 'importInput') handleImport(e);
       });
+    } catch(e) { console.error('Init error:', e); }
     });
 
   </script>
