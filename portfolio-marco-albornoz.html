@@ -1586,6 +1586,8 @@
 
     async function syncProjectsFromSB() {
       try {
+        const existing = localStorage.getItem(STORAGE_KEY);
+        if (existing && existing !== '[]' && existing !== 'null') return; /* local data is newer */
         const data = await sbGet('/rest/v1/portfolio_projects?select=*&order=sort_order.asc');
         if (data && data.length > 0) {
           const mapped = data.map(remapProjectFromDB);
@@ -1600,9 +1602,11 @@
 
     async function syncConfigFromSB() {
       try {
+        const existing = localStorage.getItem('od_portfolio_config');
+        if (existing && existing !== '{}' && existing !== 'null') return;
         const data = await sbGet('/rest/v1/portfolio_config?select=key,value');
         if (data && data.length > 0) {
-          const cfg = JSON.parse(localStorage.getItem('od_portfolio_config') || '{}');
+          const cfg = {};
           data.forEach(function(c) { cfg[c.key] = tryParseJSON(c.value); });
           localStorage.setItem('od_portfolio_config', JSON.stringify(cfg));
           if (typeof siteConfig !== 'undefined') {
@@ -1615,6 +1619,8 @@
 
     async function syncMessagesFromSB() {
       try {
+        const existing = localStorage.getItem('od_portfolio_messages');
+        if (existing && existing !== '[]' && existing !== 'null') return;
         const data = await sbGet('/rest/v1/portfolio_messages?select=*&order=created_at.desc');
         if (data && data.length > 0) {
           localStorage.setItem('od_portfolio_messages', JSON.stringify(data));
@@ -1914,7 +1920,7 @@ function resolveMediaUrl(item) {
 
     function saveProjects() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-      if (typeof saveProjectsToSB === 'function') saveProjectsToSB().catch(function(){});
+      if (typeof saveProjectsToSB === 'function') saveProjectsToSB().catch(function(e){ if (typeof showToast === 'function') showToast('Servidor offline — salvo apenas localmente'); console.warn('saveProjects:', e); });
     }
 
     async function migrateProjectsData() {
