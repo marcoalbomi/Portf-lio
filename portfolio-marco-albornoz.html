@@ -1645,9 +1645,9 @@
     }
 
     async function saveConfigToSB() {
-      if (!window.siteConfig) return;
+      if (typeof siteConfig === 'undefined' || !siteConfig) return;
       try {
-        var rows = Object.entries(window.siteConfig).map(function(e) { return { key: e[0], value: JSON.stringify(e[1]) }; });
+        var rows = Object.entries(siteConfig).map(function(e) { return { key: e[0], value: JSON.stringify(e[1]) }; });
         for (var i = 0; i < rows.length; i++) {
           try {
             await sbPost('/rest/v1/portfolio_config?on_conflict=key', rows[i]);
