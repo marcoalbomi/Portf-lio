@@ -1,5 +1,13 @@
-node_modules/
-.env.local
+*.artifact.json
+critique.json
+.od-skills/
+
 ${APPDATA}/
+node_modules/
+package-lock.json
+package.json
+
 .vercel/
+.env*
+.env.local
 *.zip
