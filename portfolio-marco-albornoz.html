@@ -1561,23 +1561,37 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
-    /* ── Supabase ── */
+    /* ── Supabase — via REST fetch (no client SDK dependency) ── */
     const SB_URL = 'https://fcvzbzomkenmivrxzxqu.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjdnpiem9ta2VubWl2cnh6eHF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNjcwNTgsImV4cCI6MjA5Nzk0MzA1OH0.-qPwHNP6t7V9Ur4eOV4b3n8nkuMplYOraBia-6mh7_0';
-    let SB;
-    try { SB = supabase.createClient(SB_URL, SB_KEY); } catch(e) { SB = null; }
+    const SB_HEADERS = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+    function sbFetch(path, opts) { return fetch(SB_URL + path, Object.assign({ headers: SB_HEADERS }, opts)); }
+    function sbGet(path) { return sbFetch(path, { method: 'GET' }).then(function(r) { if (!r.ok) throw new Error('GET ' + path + ' ' + r.status); return r.json(); }); }
+    function sbPost(path, body) { return sbFetch(path, { method: 'POST', body: JSON.stringify(body) }).then(function(r) { if (!r.ok) throw new Error('POST ' + path + ' ' + r.status); }); }
+    function sbDelete(path) { return sbFetch(path, { method: 'DELETE' }).then(function(r) { if (!r.ok) throw new Error('DELETE ' + path + ' ' + r.status); }); }
+
+    function tryParseJSON(str) {
+      try { return JSON.parse(str); } catch { return str; }
+    }
+
+    function remapProjectFromDB(p, i) {
+      return {
+        id: i, title: p.title || '',
+        tag: p.category || '', desc: p.description || '',
+        cover: p.image || '',
+        sort_order: p.sort_order ?? i
+      };
+    }
 
     async function syncProjectsFromSB() {
-      if (!SB) return;
       try {
-        const { data, error } = await SB.from('portfolio_projects').select('*').order('sort_order');
-        if (error) throw error;
+        const data = await sbGet('/rest/v1/portfolio_projects?select=*&order=sort_order.asc');
         if (data && data.length > 0) {
-          localStorage.setItem('od_portfolio_projects', JSON.stringify(data));
+          const mapped = data.map(remapProjectFromDB);
+          localStorage.setItem('od_portfolio_projects', JSON.stringify(mapped));
           if (typeof projects !== 'undefined') {
-            projects = data.map((p, i) => ({ ...p, id: i }));
+            projects = mapped;
             if (typeof buildSlides === 'function') buildSlides();
           }
         }
@@ -1585,13 +1599,11 @@
     }
 
     async function syncConfigFromSB() {
-      if (!SB) return;
       try {
-        const { data, error } = await SB.from('portfolio_config').select('key', 'value');
-        if (error) throw error;
+        const data = await sbGet('/rest/v1/portfolio_config?select=key,value');
         if (data && data.length > 0) {
           const cfg = JSON.parse(localStorage.getItem('od_portfolio_config') || '{}');
-          data.forEach(c => cfg[c.key] = tryParseJSON(c.value));
+          data.forEach(function(c) { cfg[c.key] = tryParseJSON(c.value); });
           localStorage.setItem('od_portfolio_config', JSON.stringify(cfg));
           if (typeof siteConfig !== 'undefined') {
             siteConfig = cfg;
@@ -1602,14 +1614,12 @@
     }
 
     async function syncMessagesFromSB() {
-      if (!SB) return;
       try {
-        const { data, error } = await SB.from('portfolio_messages').select('*').order('created_at', { ascending: false });
-        if (error) throw error;
+        const data = await sbGet('/rest/v1/portfolio_messages?select=*&order=created_at.desc');
         if (data && data.length > 0) {
           localStorage.setItem('od_portfolio_messages', JSON.stringify(data));
-          const mp = document.getElementById('messagesForm');
-          if (mp && mp.style.display === 'flex' && typeof renderMessagesList === 'function') renderMessagesList();
+          var fp = document.getElementById('messagesForm');
+          if (fp && fp.style.display === 'flex' && typeof renderMessagesList === 'function') renderMessagesList();
         }
       } catch(e) { console.warn('Supabase sync messages failed:', e); }
     }
@@ -1619,46 +1629,45 @@
     }
 
     async function saveProjectsToSB() {
-      if (!SB || !projects) return;
+      if (!projects) return;
       try {
-        await SB.from('portfolio_projects').delete().gte('id', 0);
-        const rows = projects.map((p, i) => ({
-          title: p.title || '',
-          category: p.tag || '',
-          description: p.desc || '',
-          image: p.cover || '',
-          link: '',
-          sort_order: i
-        }));
+        await sbDelete('/rest/v1/portfolio_projects?id=gte.0');
+        var rows = projects.map(function(p, i) {
+          return { title: p.title||'', category: p.tag||'', description: p.desc||'', image: p.cover||'', link: '', sort_order: i };
+        });
         if (rows.length === 0) return;
-        const { error } = await SB.from('portfolio_projects').insert(rows);
-        if (error) throw error;
-      } catch(e) { console.warn('Supabase save projects failed:', e); }
+        await sbPost('/rest/v1/portfolio_projects', rows);
+        if (typeof showToast === 'function') showToast('Projetos salvos no servidor');
+      } catch(e) {
+        console.warn('Supabase save projects failed:', e);
+        if (typeof showToast === 'function') showToast('Erro ao salvar projetos no servidor');
+      }
     }
 
     async function saveConfigToSB() {
-      if (!SB || !siteConfig) return;
+      if (!window.siteConfig) return;
       try {
-        const rows = Object.entries(siteConfig).map(([key, value]) => ({ key, value: JSON.stringify(value) }));
-        const { error } = await SB.from('portfolio_config').upsert(rows, { onConflict: 'key' });
-        if (error) throw error;
+        var rows = Object.entries(window.siteConfig).map(function(e) { return { key: e[0], value: JSON.stringify(e[1]) }; });
+        for (var i = 0; i < rows.length; i++) {
+          try {
+            await sbPost('/rest/v1/portfolio_config?on_conflict=key', rows[i]);
+          } catch(e2) {
+            /* upsert simulation: try delete then insert */
+            await sbDelete('/rest/v1/portfolio_config?key=eq.' + encodeURIComponent(rows[i].key));
+            await sbPost('/rest/v1/portfolio_config', rows[i]);
+          }
+        }
       } catch(e) { console.warn('Supabase save config failed:', e); }
     }
 
     async function saveMessagesToSB() {
-      if (!SB) return;
       try {
-        await SB.from('portfolio_messages').delete().gte('id', 0);
-        const msgs = JSON.parse(localStorage.getItem('od_portfolio_messages') || '[]');
-        const rows = msgs.map(m => ({ name: m.name || '', email: m.email || '', message: m.message || '', created_at: m.date || new Date().toISOString() }));
+        await sbDelete('/rest/v1/portfolio_messages?id=gte.0');
+        var msgs = JSON.parse(localStorage.getItem('od_portfolio_messages') || '[]');
+        var rows = msgs.map(function(m) { return { name: m.name||'', email: m.email||'', message: m.message||'' }; });
         if (rows.length === 0) return;
-        const { error } = await SB.from('portfolio_messages').insert(rows);
-        if (error) throw error;
+        await sbPost('/rest/v1/portfolio_messages', rows);
       } catch(e) { console.warn('Supabase save messages failed:', e); }
-    }
-
-    function tryParseJSON(str) {
-      try { return JSON.parse(str); } catch { return str; }
     }
 
     /* Cross-tab message relay — allows admin.html to request messages via iframe */
@@ -1701,7 +1710,7 @@
 
     function saveConfig() {
       localStorage.setItem(CONFIG_KEY, JSON.stringify(siteConfig));
-      saveConfigToSB();
+      saveConfigToSB(); /* fire and forget — errors logged internally */
     }
 
     function getConfig() {
@@ -2489,7 +2498,11 @@ function resolveMediaUrl(item) {
       </button>`;
       html += `<button class="btn" onclick="showImportLink()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-        Importar Link
+        Link na Bio
+      </button>`;
+      html += `<button class="btn" onclick="syncAllFromSB();setTimeout(function(){rebuildAll();showToast('Sincronizado com servidor')},1500)" style="color:var(--success);border-color:var(--success)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Sincronizar
       </button>`;
       html += '</div>';
 
@@ -2542,7 +2555,7 @@ function resolveMediaUrl(item) {
       html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><h3 style="font-size:18px;font-weight:600">Mensagens Recebidas</h3><button class="btn" onclick="clearAllMessages()" style="color:var(--danger);border-color:var(--danger);font-size:12px;padding:6px 12px">Limpar tudo</button></div>';
       html += '<p style="color:var(--muted);font-size:13px;margin-bottom:16px">Mensagens enviadas pelo formulário de contato do portfólio.</p>';
       html += '<div id="messagesList"></div>';
-      html += '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap"><button class="btn" onclick="cancelMessagesPanel()">Fechar</button><button class="btn" onclick="exportMessagesJSON()" style="color:var(--accent);border-color:var(--accent)">Exportar JSON</button></div>';
+      html += '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap"><button class="btn" onclick="cancelMessagesPanel()">Fechar</button><button class="btn" onclick="exportMessagesJSON()" style="color:var(--accent);border-color:var(--accent)">Exportar JSON</button><button class="btn" onclick="syncAllFromSB();showToast(\'Sincronizando com servidor…\');renderMessagesList()" style="color:var(--success);border-color:var(--success)">Sincronizar</button></div>';
       html += '</div>';
 
       html += '<div class="admin-form" id="configForm" style="display:none">';
@@ -3451,13 +3464,24 @@ function resolveMediaUrl(item) {
       }
     });
 
+    /* ── Polling: sync from Supabase every 15s ── */
+    var sbPollTimer = null;
+    function startSBPoll() {
+      stopSBPoll();
+      sbPollTimer = setInterval(function() {
+        syncAllFromSB();
+      }, 15000);
+    }
+    function stopSBPoll() { if (sbPollTimer) { clearInterval(sbPollTimer); sbPollTimer = null; } }
+
     document.addEventListener('DOMContentLoaded', async () => {
       await MediaDB.init();
+      await syncAllFromSB();
       loadProjects();
-      syncAllFromSB();
       await migrateProjectsData();
       buildSlides();
       initDragScroll();
+      startSBPoll();
 
       /* ── Click on carousel card → open project overlay ── */
       const container = document.getElementById('carouselContainer');
