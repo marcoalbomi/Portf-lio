@@ -1699,7 +1699,7 @@
         { platform: 'WhatsApp', url: '', icon: 'whatsapp' }
       ]
     };
-    let siteConfig = {};
+    var siteConfig = {};
 
     function loadConfig() {
       try {
@@ -1828,9 +1828,9 @@ function resolveMediaUrl(item) {
       return null;
     }
 
-    let projects = [];
-    let editingId = null;
-    let logoClickCount = parseInt(sessionStorage.getItem('od_lc')||'0');
+    var projects = [];
+    var editingId = null;
+    var logoClickCount = parseInt(sessionStorage.getItem('od_lc')||'0');
     let logoClickTimer = null;
     function logoClick() {
       logoClickCount++;
