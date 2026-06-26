@@ -1706,12 +1706,16 @@
     }
 
     function remapProjectFromDB(p, i) {
-      return {
-        id: i, title: p.title || '',
-        tag: p.category || '', desc: p.description || '',
-        cover: p.image || '',
-        sort_order: p.sort_order ?? i
-      };
+      var base = { id: i, title: p.title||'', tag: p.category||'', desc: p.description||'', cover: p.image||'', sort_order: p.sort_order ?? i };
+      if (p.payload && typeof p.payload === 'string') {
+        try { var pl = JSON.parse(p.payload);
+          ['longDesc','role','ano','tools','url','media','blocks','blockSpacing','color'].forEach(function(k) {
+            if (pl[k] !== undefined) base[k] = pl[k];
+          });
+          if (!base.cover && pl.cover) base.cover = pl.cover;
+        } catch(e) { console.warn('[Supabase] remap payload parse failed:', e); }
+      }
+      return base;
     }
 
     async function syncProjectsFromSB() {
@@ -1782,22 +1786,37 @@
       try {
         console.log('[Supabase] DELETE all existing projects...');
         await sbDelete('/rest/v1/portfolio_projects?id=gte.0');
-        console.log('[Supabase] DELETE OK. Resolving covers in parallel...');
-        var rows = [];
-        var resolvedCovers = await Promise.all(projects.map(function(p, i) {
-          return resolveCover(p.cover || '', 'proj_' + i).then(function(url) {
-            console.log('[Supabase] Project', i, '(' + p.title + ') cover:', url ? 'OK' : 'LOCAL-ONLY');
-            return { index: i, url: url || '', title: p.title||'', category: p.tag||'', description: p.desc||'' };
+        console.log('[Supabase] DELETE OK. Resolving covers & building payloads...');
+        var rows = await Promise.all(projects.map(async function(p, i) {
+          var coverUrl = await resolveCover(p.cover||'', 'proj_'+i);
+          console.log('[Supabase] Project', i, '('+p.title+') cover:', coverUrl ? 'OK':'LOCAL-ONLY');
+          var payload = {};
+          ['title','tag','desc','longDesc','role','ano','tools','url','cover','media','blocks','blockSpacing','color'].forEach(function(k) {
+            if (p[k] !== undefined) payload[k] = p[k];
           });
+          if (payload.media && payload.media.length) {
+            payload.media = await Promise.all(payload.media.map(async function(m) {
+              var item = { name: m.name, type: m.type };
+              if (m.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
+                try { item.dataUrl = await MediaDB.getDataUrl(m.mediaId); } catch(e) {}
+              } else if (m.dataUrl) { item.dataUrl = m.dataUrl; }
+              return item;
+            }));
+          }
+          if (payload.blocks && payload.blocks.length) {
+            payload.blocks = await Promise.all(payload.blocks.map(async function(b) {
+              if (['image','gallery','video'].indexOf(b.type) >= 0 && b.data && b.data.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
+                try { b.data.dataUrl = await MediaDB.getDataUrl(b.data.mediaId); } catch(e) {}
+              }
+              return b;
+            }));
+          }
+          return { title: p.title||'', category: p.tag||'', description: p.desc||'', image: coverUrl||'', sort_order: i, payload: JSON.stringify(payload) };
         }));
-        rows = resolvedCovers.sort(function(a,b){return a.index-b.index}).map(function(r) {
-          return { title: r.title, category: r.category, description: r.description, image: r.url, sort_order: r.index };
-        });
         if (rows.length === 0) { console.log('[Supabase] No rows to save'); return; }
         console.log('[Supabase] POSTING', rows.length, 'rows...');
         await sbPost('/rest/v1/portfolio_projects', rows);
         console.log('[Supabase] POST OK');
-        /* Update localStorage with resolved Supabase URLs so reloads get canonical data */
         for (var k = 0; k < rows.length; k++) {
           if (rows[k].image && projects[k]) projects[k].cover = rows[k].image;
         }
