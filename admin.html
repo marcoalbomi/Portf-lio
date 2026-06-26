@@ -910,7 +910,7 @@ function renderGalBlock(b,i){
     const u=rmu(img)||img.dataUrl||'';
     h+=`<div class="block-gallery-item"><img src="${esc(u)}" alt="" /><button class="gal-del" onclick="delGalImg(${i},${idx})">✕</button></div>`
   });
-  h+=`<div class="block-gallery-item" style="border:2px dashed #ddd;display:grid;place-items:center;cursor:pointer;color:#aaa;font-size:24px" onclick="document.getElementById('galFile${i}').click()">+<input type="file" id="galFile${i}" accept="image/*" style="display:none" onchange="addGalImg(${i},event)" /></div>`;
+  h+=`<div class="block-gallery-item" style="border:2px dashed #ddd;display:grid;place-items:center;cursor:pointer;color:#aaa;font-size:24px" onclick="document.getElementById('galFile${i}').click()">+<input type="file" id="galFile${i}" accept="image/*" multiple style="display:none" onchange="addGalImg(${i},event)" /></div>`;
   h+='</div>';
   return h
 }
@@ -982,14 +982,13 @@ function updateTextBlock(i,val){editingBlocks[i].data.content=val}
 function updateEmbBlock(i,k,val){editingBlocks[i].data[k]=val;renderEditorCanvas()}
 function updateSimpleBlock(i,val){editingBlocks[i].data={url:val}}
 async function addGalImg(i,ev){
-  const f=ev.target.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=async e=>{
-    const du=e.target.result;
+  const files=Array.from(ev.target.files);
+  for(const f of files){
+    if(!f)continue;
+    const du=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f)});
     try{const mid=gid();const blob=du2b(du);if(blob)await MediaDB.store(mid,blob);editingBlocks[i].data.images.push({mediaId:mid,dataUrl:du})}catch{editingBlocks[i].data.images.push({mediaId:'',dataUrl:du})}
-    renderEditorCanvas()
-  };
-  r.readAsDataURL(f)
+  }
+  renderEditorCanvas()
 }
 function delGalImg(bi,ii){editingBlocks[bi].data.images.splice(ii,1);renderEditorCanvas()}
 
