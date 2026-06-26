@@ -41,32 +41,6 @@ ALTER TABLE public.portfolio_messages ADD COLUMN IF NOT EXISTS created_at TIMEST
 CREATE INDEX IF NOT EXISTS idx_projects_sort ON public.portfolio_projects (sort_order ASC);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON public.portfolio_messages (created_at DESC);
 
--- Triggers
-CREATE OR REPLACE FUNCTION public.set_created_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.created_at IS NULL THEN
-    NEW.created_at = NOW();
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_projects_created ON public.portfolio_projects;
-CREATE TRIGGER trg_projects_created
-  BEFORE INSERT ON public.portfolio_projects
-  FOR EACH ROW EXECUTE FUNCTION public.set_created_at();
-
-DROP TRIGGER IF EXISTS trg_config_created ON public.portfolio_config;
-CREATE TRIGGER trg_config_created
-  BEFORE INSERT ON public.portfolio_config
-  FOR EACH ROW EXECUTE FUNCTION public.set_created_at();
-
-DROP TRIGGER IF EXISTS trg_messages_created ON public.portfolio_messages;
-CREATE TRIGGER trg_messages_created
-  BEFORE INSERT ON public.portfolio_messages
-  FOR EACH ROW EXECUTE FUNCTION public.set_created_at();
-
 -- Row Level Security
 ALTER TABLE public.portfolio_projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.portfolio_config ENABLE ROW LEVEL SECURITY;
@@ -86,31 +60,37 @@ CREATE POLICY "anon_all_messages" ON public.portfolio_messages
   FOR ALL USING (true) WITH CHECK (true);
 
 -- =====================================================
--- STORAGE BUCKET: project-covers
+-- STORAGE BUCKET: portfolio
 -- IMPORTANTE: O bucket de storage PRECISA ser criado
 -- via SQL porque a chave anon não pode criar buckets.
+-- Após executar este SQL, o bucket "portfolio" estará
+-- disponível para upload público de imagens.
 -- =====================================================
 
+-- Cria o bucket "portfolio" (público, até 20MB por arquivo)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('project-covers', 'project-covers', true, 5242880, '{"image/jpeg","image/png","image/webp","image/gif"}')
+VALUES ('portfolio', 'portfolio', true, 20971520, '{"image/jpeg","image/png","image/webp","image/avif","image/gif"}')
 ON CONFLICT (id) DO NOTHING;
 
--- RLS Policies para o bucket project-covers
-DROP POLICY IF EXISTS "Public Read project-covers" ON storage.objects;
-CREATE POLICY "Public Read project-covers" ON storage.objects
-  FOR SELECT USING (bucket_id = 'project-covers');
+-- Remove bucket antigo se existir
+DELETE FROM storage.buckets WHERE id = 'project-covers' AND id NOT IN (SELECT id FROM storage.buckets WHERE id = 'portfolio');
 
-DROP POLICY IF EXISTS "Public Insert project-covers" ON storage.objects;
-CREATE POLICY "Public Insert project-covers" ON storage.objects
-  FOR INSERT WITH CHECK (bucket_id = 'project-covers');
+-- RLS Policies para o bucket portfolio
+DROP POLICY IF EXISTS "Public Read portfolio" ON storage.objects;
+CREATE POLICY "Public Read portfolio" ON storage.objects
+  FOR SELECT USING (bucket_id = 'portfolio');
 
-DROP POLICY IF EXISTS "Public Update project-covers" ON storage.objects;
-CREATE POLICY "Public Update project-covers" ON storage.objects
-  FOR UPDATE USING (bucket_id = 'project-covers') WITH CHECK (bucket_id = 'project-covers');
+DROP POLICY IF EXISTS "Public Insert portfolio" ON storage.objects;
+CREATE POLICY "Public Insert portfolio" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'portfolio');
 
-DROP POLICY IF EXISTS "Public Delete project-covers" ON storage.objects;
-CREATE POLICY "Public Delete project-covers" ON storage.objects
-  FOR DELETE USING (bucket_id = 'project-covers');
+DROP POLICY IF EXISTS "Public Update portfolio" ON storage.objects;
+CREATE POLICY "Public Update portfolio" ON storage.objects
+  FOR UPDATE USING (bucket_id = 'portfolio') WITH CHECK (bucket_id = 'portfolio');
+
+DROP POLICY IF EXISTS "Public Delete portfolio" ON storage.objects;
+CREATE POLICY "Public Delete portfolio" ON storage.objects
+  FOR DELETE USING (bucket_id = 'portfolio');
 
 -- =====================================================
 -- (Opcional) Seed inicial para config
