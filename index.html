@@ -1625,47 +1625,57 @@
     /* Upload a single image to Supabase Storage "portfolio" bucket.
      * Steps: 1) compress, 2) convert to blob, 3) upload with retry,
      * 4) return public URL. On failure, returns '' (caller keeps local dataUrl). */
-    async function uploadImage(dataUrl, prefix) {
+    /* Upload a single image to Supabase Storage "portfolio" bucket.
+     * Compression cascade: maxWidth/quality can be overridden for retry.
+     * On failure, returns '' (caller keeps local dataUrl). */
+    async function uploadImage(dataUrl, prefix, maxWidth, quality) {
       try {
         if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
-        /* Compress before upload — limit to 1920px, JPEG quality 0.85 */
-        var compressed = await compressImage(dataUrl);
+        var compressed = await compressImage(dataUrl, maxWidth || 1920, quality || 0.85);
         var blob = dataUrlToBlob(compressed);
         if (!blob) throw new Error('Invalid blob from dataUrl');
         var ext = blob.type.split('/')[1] || 'jpg';
         var safeExt = ext.replace(/[^a-z0-9]/gi, 'jpg');
         var path = (prefix||'img') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8) + '.' + safeExt;
+        console.log('[Supabase] Uploading', path, '- size:', Math.round(blob.size/1024)+'KB');
         var resp = await retryFetch(SB_URL + '/storage/v1/object/portfolio/' + path, {
           method: 'POST',
           headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': blob.type, 'x-upsert': 'true' },
           body: blob
         });
-        if (!resp.ok) throw new Error('Upload failed with status ' + resp.status);
+        if (!resp.ok) throw new Error('Upload failed with status ' + resp.status + ' ' + (await resp.text().catch(function(){return''})));
         console.log('[Supabase] Upload OK — path:', path);
         return SB_URL + '/storage/v1/object/public/portfolio/' + path;
       } catch(e) {
         console.warn('[Supabase] uploadImage failed:', e.message);
-        return ''; /* Caller keeps local dataUrl */
+        return '';
       }
     }
 
-    /* Resolve any cover format (dataUrl, MediaDB ID, or already-public URL)
-     * to a public Supabase URL. Returns '' on failure to keep the local dataUrl. */
+    /* Resolve any cover format to a public Supabase URL.
+     * Three-pass compression cascade: tries 1920px/0.85, then 1200px/0.7, then 800px/0.5.
+     * Returns '' only when all three fail — caller keeps local dataUrl. */
     async function resolveCover(cover, prefix) {
       if (!cover) return '';
       if (cover.startsWith('http') && cover.indexOf('supabase.co') > 0) return cover;
-      if (cover.startsWith('data:')) {
-        return await uploadImage(cover, prefix);
-      }
       if (cover.startsWith(SB_URL)) return cover;
-      /* MediaDB ID — resolve to dataUrl then upload */
-      if (typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
-        try {
-          var du = await MediaDB.getDataUrl(cover);
-          if (du) return await uploadImage(du, prefix);
-        } catch(e) { console.warn('[Supabase] MediaDB resolve failed:', e); }
+      var dataUrl = null;
+      if (cover.startsWith('data:')) {
+        dataUrl = cover;
+      } else if (typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
+        try { dataUrl = await MediaDB.getDataUrl(cover); } catch(e) {}
       }
-      return '';
+      if (!dataUrl) return '';
+      /* Three-pass compression cascade */
+      var result = await uploadImage(dataUrl, prefix, 1920, 0.85);
+      if (result) return result;
+      console.log('[Supabase] Retry 1 — 1200px, quality 0.7');
+      result = await uploadImage(dataUrl, prefix, 1200, 0.7);
+      if (result) return result;
+      console.log('[Supabase] Retry 2 — 800px, quality 0.5');
+      result = await uploadImage(dataUrl, prefix, 800, 0.5);
+      if (!result) console.warn('[Supabase] All 3 upload attempts failed for', prefix);
+      return result;
     }
 
     function tryParseJSON(str) {
@@ -1681,37 +1691,27 @@
       };
     }
 
-    async function syncProjectsFromSB(force) {
+    async function syncProjectsFromSB() {
       try {
-        var localData = localStorage.getItem('od_portfolio_projects');
-        if (!force && localData) {
-          console.log('[Supabase] syncProjectsFromSB() — has local data, skipping');
-          return;
-        }
         console.log('[Supabase] syncProjectsFromSB() — fetching from server...');
         const data = await sbGet('/rest/v1/portfolio_projects?select=*&order=sort_order.asc');
         if (data && data.length > 0) {
           const mapped = data.map(remapProjectFromDB);
           localStorage.setItem('od_portfolio_projects', JSON.stringify(mapped));
           localStorage.setItem('od_sb_projects_ok', '1');
-          console.log('[Supabase] syncProjectsFromSB() — loaded', mapped.length, 'projects from server');
+          console.log('[Supabase] loaded', mapped.length, 'projects from server');
           if (typeof projects !== 'undefined') {
             projects = mapped;
             if (typeof buildSlides === 'function') buildSlides();
           }
         } else {
-          console.log('[Supabase] syncProjectsFromSB() — server returned empty');
+          console.log('[Supabase] server returned empty — keeping local data');
         }
       } catch(e) { console.warn('[Supabase] sync projects failed:', e); }
     }
 
-    async function syncConfigFromSB(force) {
+    async function syncConfigFromSB() {
       try {
-        var localData = localStorage.getItem('od_portfolio_config');
-        if (!force && localData) {
-          console.log('[Supabase] syncConfigFromSB() — has local data, skipping');
-          return;
-        }
         const data = await sbGet('/rest/v1/portfolio_config?select=key,value');
         if (data && data.length > 0) {
           const cfg = {};
@@ -1723,16 +1723,11 @@
             if (typeof updateLogo === 'function') updateLogo();
           }
         }
-      } catch(e) { console.warn('Supabase sync config failed:', e); }
+      } catch(e) { console.warn('[Supabase] sync config failed:', e); }
     }
 
-    async function syncMessagesFromSB(force) {
+    async function syncMessagesFromSB() {
       try {
-        var localData = localStorage.getItem('od_portfolio_messages');
-        if (!force && localData) {
-          console.log('[Supabase] syncMessagesFromSB() — has local data, skipping');
-          return;
-        }
         const data = await sbGet('/rest/v1/portfolio_messages?select=*&order=created_at.desc');
         if (data && data.length > 0) {
           localStorage.setItem('od_portfolio_messages', JSON.stringify(data));
@@ -1740,7 +1735,7 @@
           var fp = document.getElementById('messagesForm');
           if (fp && fp.style.display === 'flex' && typeof renderMessagesList === 'function') renderMessagesList();
         }
-      } catch(e) { console.warn('Supabase sync messages failed:', e); }
+      } catch(e) { console.warn('[Supabase] sync messages failed:', e); }
     }
 
     async function syncAllFromSB() {
@@ -1750,34 +1745,40 @@
       localStorage.removeItem('od_portfolio_projects');
       localStorage.removeItem('od_portfolio_config');
       localStorage.removeItem('od_portfolio_messages');
-      await Promise.all([syncProjectsFromSB(true), syncConfigFromSB(true), syncMessagesFromSB(true)]);
+      await syncProjectsFromSB();
+      await syncConfigFromSB();
+      await syncMessagesFromSB();
       if (typeof loadProjects === 'function') loadProjects();
       if (typeof buildSlides === 'function') buildSlides();
       if (typeof showToast === 'function') showToast('Dados sincronizados do servidor');
     }
 
     async function saveProjectsToSB() {
-      console.log('[Supabase] saveProjectsToSB() started — projects.length =', projects ? projects.length : 'undefined');
+      console.log('[Supabase] saveProjectsToSB() — projects.length =', projects ? projects.length : 'undefined');
       if (!projects) { console.log('[Supabase] projects is falsy, aborting'); return; }
       try {
-        console.log('[Supabase] Deleting all existing projects...');
+        console.log('[Supabase] DELETE all existing projects...');
         await sbDelete('/rest/v1/portfolio_projects?id=gte.0');
-        console.log('[Supabase] DELETE OK. Building rows...');
+        console.log('[Supabase] DELETE OK. Resolving covers in parallel...');
         var rows = [];
-        for (var i = 0; i < projects.length; i++) {
-          var p = projects[i];
-          var imgUrl = p.cover || '';
-          console.log('[Supabase] Project', i, '— title:', p.title, 'cover type:', typeof imgUrl);
-          /* resolveCover agora é a VERSÃO SUPABASE (upload para Storage) */
-          imgUrl = await resolveCover(imgUrl, 'proj_' + i);
-          if (imgUrl) console.log('[Supabase] Cover resolved to:', imgUrl.substring(0, 80));
-          else console.log('[Supabase] Cover resolved to empty (will keep local dataUrl)');
-          rows.push({ title: p.title||'', category: p.tag||'', description: p.desc||'', image: imgUrl, link: '', sort_order: i });
-        }
-        if (rows.length === 0) { console.log('[Supabase] No rows to save, aborting'); return; }
-        console.log('[Supabase] POSTING', rows.length, 'rows to Supabase...');
+        var resolvedCovers = await Promise.all(projects.map(function(p, i) {
+          return resolveCover(p.cover || '', 'proj_' + i).then(function(url) {
+            console.log('[Supabase] Project', i, '(' + p.title + ') cover:', url ? 'OK' : 'LOCAL-ONLY');
+            return { index: i, url: url || '', title: p.title||'', category: p.tag||'', description: p.desc||'' };
+          });
+        }));
+        rows = resolvedCovers.sort(function(a,b){return a.index-b.index}).map(function(r) {
+          return { title: r.title, category: r.category, description: r.description, image: r.url, link: '', sort_order: r.index };
+        });
+        if (rows.length === 0) { console.log('[Supabase] No rows to save'); return; }
+        console.log('[Supabase] POSTING', rows.length, 'rows...');
         await sbPost('/rest/v1/portfolio_projects', rows);
-        console.log('[Supabase] POST OK — projects saved successfully');
+        console.log('[Supabase] POST OK');
+        /* Update localStorage with resolved Supabase URLs so reloads get canonical data */
+        for (var k = 0; k < rows.length; k++) {
+          if (rows[k].image && projects[k]) projects[k].cover = rows[k].image;
+        }
+        localStorage.setItem('od_portfolio_projects', JSON.stringify(projects));
         localStorage.setItem('od_sb_projects_ok', '1');
         if (typeof showToast === 'function') showToast('Projetos salvos no servidor');
       } catch(e) {
@@ -3640,13 +3641,18 @@ function resolveMediaUrl(item) {
       }
     });
 
-    document.addEventListener('DOMContentLoaded', async () => {
-      await MediaDB.init().catch(function(){});
-      await syncAllFromSB();
+    document.addEventListener('DOMContentLoaded', function() {
+      MediaDB.init().catch(function(){});
+      /* Load local data immediately — don't block on Supabase */
       loadProjects();
-      await migrateProjectsData();
       buildSlides();
       initDragScroll();
+      /* Sync from Supabase in background; will overwrite localStorage + rebuild */
+      syncAllFromSB().then(function() {
+        migrateProjectsData().catch(function(){});
+      }).catch(function(e) {
+        console.warn('[Supabase] Background sync failed:', e);
+      });
 
       /* ── Click on carousel card → open project overlay ── */
       const container = document.getElementById('carouselContainer');
