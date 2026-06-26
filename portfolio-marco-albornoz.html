@@ -1675,6 +1675,33 @@
       }
     }
 
+    /* Upload any blob (video, image, etc.) to Supabase Storage "portfolio" bucket.
+     * No compression — uploads the original dataUrl as-is.
+     * Returns public URL on success, '' on failure (caller keeps local dataUrl). */
+    async function uploadBlobToStorage(dataUrl, prefix) {
+      try {
+        if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
+        var blob = dataUrlToBlob(dataUrl);
+        if (!blob) throw new Error('Invalid blob from dataUrl');
+        var ext = blob.type.split('/')[1] || 'bin';
+        var safeExt = ext.replace(/[^a-z0-9]/gi, 'bin');
+        var path = (prefix||'blob') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8) + '.' + safeExt;
+        console.log('[Supabase] Uploading blob', path, '- size:', Math.round(blob.size/1024)+'KB', '- type:', blob.type);
+        var resp = await retryFetch(SB_URL + '/storage/v1/object/portfolio/' + path, {
+          method: 'POST',
+          headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': blob.type, 'x-upsert': 'true' },
+          body: blob
+        });
+        if (!resp.ok) throw new Error('Upload failed ' + resp.status);
+        var publicUrl = SB_URL + '/storage/v1/object/public/portfolio/' + path;
+        console.log('[Supabase] Upload OK —', publicUrl);
+        return publicUrl;
+      } catch(e) {
+        console.warn('[Supabase] uploadBlobToStorage failed:', e.message);
+        return '';
+      }
+    }
+
     /* Resolve any cover format to a public Supabase URL.
      * Three-pass compression cascade: tries 1920px/0.85, then 1200px/0.7, then 800px/0.5.
      * Returns '' only when all three fail — caller keeps local dataUrl. */
@@ -1800,15 +1827,36 @@
           if (payload.media && payload.media.length) {
             payload.media = await Promise.all(payload.media.map(async function(m) {
               var item = { name: m.name, type: m.type };
+              var isVideo = m.type && m.type.startsWith('video/');
+              var du = '';
               if (m.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
-                try { item.dataUrl = await MediaDB.getDataUrl(m.mediaId); } catch(e) {}
-              } else if (m.dataUrl) { item.dataUrl = m.dataUrl; }
+                try { du = await MediaDB.getDataUrl(m.mediaId); } catch(e) {}
+              } else if (m.dataUrl) { du = m.dataUrl; }
+              if (isVideo && du && du.startsWith('data:')) {
+                console.log('[Supabase] Uploading video media:', m.name);
+                var vUrl = await uploadBlobToStorage(du, 'vid');
+                if (vUrl) { item.url = vUrl; } else { item.dataUrl = du; }
+              } else {
+                item.dataUrl = du;
+              }
               return item;
             }));
           }
           if (payload.blocks && payload.blocks.length) {
             payload.blocks = await Promise.all(payload.blocks.map(async function(b) {
-              if (['image','gallery','video'].indexOf(b.type) >= 0 && b.data && b.data.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
+              if (b.type === 'video' && b.data) {
+                var bdu = '';
+                if (b.data.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
+                  try { bdu = await MediaDB.getDataUrl(b.data.mediaId); } catch(e) {}
+                } else if (b.data.dataUrl) { bdu = b.data.dataUrl; }
+                if (bdu && bdu.startsWith('data:')) {
+                  console.log('[Supabase] Uploading video block...');
+                  var bvUrl = await uploadBlobToStorage(bdu, 'blk_vid');
+                  if (bvUrl) { b.data.url = bvUrl; b.data.dataUrl = ''; } else { b.data.dataUrl = bdu; }
+                } else if (b.data.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
+                  try { b.data.dataUrl = await MediaDB.getDataUrl(b.data.mediaId); } catch(e) {}
+                }
+              } else if (['image','gallery'].indexOf(b.type) >= 0 && b.data && b.data.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
                 try { b.data.dataUrl = await MediaDB.getDataUrl(b.data.mediaId); } catch(e) {}
               }
               return b;
@@ -2030,7 +2078,7 @@ function resolveMediaUrl(item) {
         const url = MediaDB.getObjectUrl(item.mediaId);
         if (url) return url;
       }
-      return item.dataUrl || null;
+      return item.dataUrl || item.url || null;
     }
     function resolveCoverLocal(p) {
       if (!p) return null;
