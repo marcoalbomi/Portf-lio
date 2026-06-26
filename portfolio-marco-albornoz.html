@@ -2688,7 +2688,7 @@ function resolveMediaUrl(item) {
       const body = document.getElementById('adminBody');
 
       let html = '<div class="admin-toolbar">';
-      html += `<button class="btn btn-primary" onclick="showAddForm()">
+      html += `<button class="btn btn-primary" onclick="openEditor(null)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Novo Projeto
       </button>`;
@@ -3356,6 +3356,7 @@ function resolveMediaUrl(item) {
       attachedFiles = [];
     }
     function editProject(id) { openEditor(id) }
+    function showAddForm() { openEditor(null) }
 
     function renderEditorCanvas() {
       const c = document.getElementById('editorCanvas');
@@ -3752,32 +3753,37 @@ function resolveMediaUrl(item) {
 
     /* ── Save from editor ── */
     function saveFromEditor() {
-      const title = document.getElementById('edTitle') && document.getElementById('edTitle').value.trim() || '';
-      if (!title) { showToast('O título é obrigatório'); return }
-      const tag = document.getElementById('edTag') && document.getElementById('edTag').value.trim() || '';
-      const ano = document.getElementById('edAno') && document.getElementById('edAno').value.trim() || '';
-      const meta = settingsTemp || { desc: '', longDesc: '', role: '', tools: '', blockSpacing: 60 };
-
-      const projectData = {
-        title, tag, desc: meta.desc, longDesc: meta.longDesc,
-        role: meta.role, ano, tools: meta.tools,
-        cover: editingCover,
-        blockSpacing: meta.blockSpacing,
-        blocks: editingBlocks.map(b => JSON.parse(JSON.stringify(b))),
-        media: []
-      };
-
-      if (editingId !== null) {
-        const idx = projects.findIndex(p => p.id === editingId);
-        if (idx !== -1) projects[idx] = { ...projects[idx], ...projectData };
-      } else {
-        const newId = projects.length > 0 ? Math.max(...projects.map(p => p.id)) + 1 : 0;
-        projects.push({ id: newId, ...projectData });
+      try {
+        const title = document.getElementById('edTitle') && document.getElementById('edTitle').value.trim() || '';
+        if (!title) { showToast('O título é obrigatório'); return }
+        const tag = document.getElementById('edTag') && document.getElementById('edTag').value.trim() || '';
+        const ano = document.getElementById('edAno') && document.getElementById('edAno').value.trim() || '';
+        const meta = settingsTemp || { desc: '', longDesc: '', role: '', tools: '', blockSpacing: 60 };
+        const blocks = (editingBlocks || []).map(b => JSON.parse(JSON.stringify(b)));
+        const projectData = {
+          title, tag, desc: meta.desc, longDesc: meta.longDesc,
+          role: meta.role, ano, tools: meta.tools,
+          cover: editingCover || '',
+          blockSpacing: meta.blockSpacing,
+          blocks: blocks,
+          media: []
+        };
+        if (editingId !== null) {
+          const idx = projects.findIndex(p => p.id === editingId);
+          if (idx !== -1) projects[idx] = { ...projects[idx], ...projectData };
+        } else {
+          const newId = projects.length > 0 ? Math.max(...projects.map(p => p.id)) + 1 : 0;
+          projects.push({ id: newId, ...projectData });
+        }
+        saveProjects();
+        closeEditor();
+        renderAdmin();
+        showToast('Projeto salvo!');
+        console.log('[Editor] Projeto salvo com sucesso:', projectData.title);
+      } catch(e) {
+        console.error('[Editor] Erro ao salvar projeto:', e);
+        showToast('Erro ao salvar: ' + e.message);
       }
-      saveProjects();
-      closeEditor();
-      renderAdmin();
-      showToast('Projeto salvo!')
     }
 
     function showDeleteConfirm(id) {
