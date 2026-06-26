@@ -1676,13 +1676,18 @@
     }
 
     /* Upload any blob (video, image, etc.) to Supabase Storage "portfolio" bucket.
-     * No compression — uploads the original dataUrl as-is.
+     * Accepts either a dataUrl string or a Blob (preferred for videos).
      * Returns public URL on success, '' on failure (caller keeps local dataUrl). */
-    async function uploadBlobToStorage(dataUrl, prefix) {
+    async function uploadBlobToStorage(dataUrl_or_Blob, prefix) {
       try {
-        if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
-        var blob = dataUrlToBlob(dataUrl);
-        if (!blob) throw new Error('Invalid blob from dataUrl');
+        var blob;
+        if (dataUrl_or_Blob instanceof Blob) {
+          blob = dataUrl_or_Blob;
+        } else {
+          if (!dataUrl_or_Blob || typeof dataUrl_or_Blob !== 'string' || !dataUrl_or_Blob.startsWith('data:')) return dataUrl_or_Blob;
+          blob = dataUrlToBlob(dataUrl_or_Blob);
+        }
+        if (!blob) throw new Error('Invalid blob');
         var ext = blob.type.split('/')[1] || 'bin';
         var safeExt = ext.replace(/[^a-z0-9]/gi, 'bin');
         var path = (prefix||'blob') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8) + '.' + safeExt;
@@ -1835,7 +1840,9 @@
               if (du && du.startsWith('data:')) {
                 if (isVideo) {
                   console.log('[Supabase] Uploading video media:', m.name);
-                  var vUrl = await uploadBlobToStorage(du, 'vid');
+                  var vBlob = null;
+                  if (m.mediaId && MediaDB.getBlob) { try { vBlob = MediaDB.getBlob(m.mediaId); } catch(e) {} }
+                  var vUrl = vBlob ? await uploadBlobToStorage(vBlob, 'vid') : await uploadBlobToStorage(du, 'vid');
                   if (vUrl) { item.url = vUrl; } else { item.dataUrl = du; }
                 } else {
                   console.log('[Supabase] Uploading image media:', m.name);
@@ -1859,7 +1866,9 @@
                   var isVid = b.type === 'video';
                   if (isVid) {
                     console.log('[Supabase] Uploading video block...');
-                    var bvUrl = await uploadBlobToStorage(bdu, 'blk_vid');
+                    var bvBlob = null;
+                    if (b.data.mediaId && MediaDB.getBlob) { try { bvBlob = MediaDB.getBlob(b.data.mediaId); } catch(e) {} }
+                    var bvUrl = bvBlob ? await uploadBlobToStorage(bvBlob, 'blk_vid') : await uploadBlobToStorage(bdu, 'blk_vid');
                     if (bvUrl) { b.data.url = bvUrl; b.data.dataUrl = ''; } else { b.data.dataUrl = bdu; }
                   } else {
                     console.log('[Supabase] Uploading image block...');
