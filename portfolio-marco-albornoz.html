@@ -1297,17 +1297,17 @@
     .editor-btn-publish{padding:8px 20px;border:none;border-radius:8px;background:#191919;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
     .editor-btn-publish:hover{background:#333}
     .editor-body{display:flex;flex:1;overflow:hidden}
-    .editor-canvas{flex:1;overflow-y:auto;background:#f3f3f3;padding:40px}
+    .editor-canvas{flex:1;overflow-y:auto;background:#f3f3f3;padding:10px}
     .editor-canvas-inner{max-width:800px;margin:0 auto}
-    .editor-title-input{width:100%;padding:16px 20px;font-size:28px;font-weight:700;border:none;border-radius:12px;background:#fff;margin-bottom:12px;outline:none;transition:box-shadow var(--motion-fast);font-family:var(--font-display)}
+    .editor-title-input{width:100%;padding:12px 16px;font-size:28px;font-weight:700;border:none;border-radius:12px;background:#fff;margin-bottom:8px;outline:none;transition:box-shadow var(--motion-fast);font-family:var(--font-display)}
     .editor-title-input:focus{box-shadow:0 0 0 2px #191919}
     .editor-title-input::placeholder{color:#bbb}
-    .editor-meta-row{display:flex;gap:10px;margin-bottom:20px}
-    .editor-meta-input{padding:12px 16px;font-size:14px;border:none;border-radius:10px;background:#fff;outline:none;transition:box-shadow var(--motion-fast)}
+    .editor-meta-row{display:flex;gap:6px;margin-bottom:8px}
+    .editor-meta-input{padding:8px 12px;font-size:14px;border:none;border-radius:10px;background:#fff;outline:none;transition:box-shadow var(--motion-fast)}
     .editor-meta-input:focus{box-shadow:0 0 0 2px #191919}
     .editor-meta-input::placeholder{color:#bbb}
-    .editor-sidebar{width:280px;flex-shrink:0;border-left:1px solid #eee;overflow-y:auto;background:#fff;padding:20px 16px 32px}
-    .sidebar-section{margin-bottom:28px}
+    .editor-sidebar{width:280px;flex-shrink:0;border-left:1px solid #eee;overflow-y:auto;background:#fff;padding:10px 12px 16px}
+    .sidebar-section{margin-bottom:12px}
     .sidebar-section h3{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--meta);margin-bottom:10px}
     .sb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px}
     .sb-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border:1px solid #eee;border-radius:10px;background:#fafafa;cursor:pointer;transition:all var(--motion-fast)}
@@ -1326,7 +1326,7 @@
     .att-item img{width:100%;height:100%;object-fit:cover}
     .att-del{position:absolute;top:2px;right:2px;width:18px;height:18px;border:none;border-radius:4px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;display:grid;place-items:center;cursor:pointer;opacity:0;transition:opacity var(--motion-fast)}
     .att-item:hover .att-del{opacity:1}
-    .editor-blocks{display:flex;flex-direction:column;gap:var(--block-gap, 10px);margin-bottom:20px}
+    .editor-blocks{display:flex;flex-direction:column;gap:var(--block-gap, 6px);margin-bottom:8px}
     .block-card{border:1px solid #e8e8e8;border-radius:12px;background:#fff;overflow:hidden;transition:box-shadow var(--motion-fast)}
     .block-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.06)}
     .block-card-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#fafafa;border-bottom:1px solid #eee}
@@ -1392,9 +1392,9 @@
     .add-block-btn:hover{border-color:#999;color:#333;background:#f8f8f8}
     .settings-pop{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:400px;z-index:250;box-shadow:0 8px 40px rgba(0,0,0,.15);border-radius:16px;background:#fff;overflow:hidden}
     .settings-pop.open{display:block}
-    .settings-box{padding:24px}
-    .settings-box h2{font-size:16px;font-weight:600;margin-bottom:16px}
-    .settings-box .field{margin-bottom:12px}
+    .settings-box{padding:0}
+    .settings-box h2{font-size:16px;font-weight:600;margin-bottom:0}
+    .settings-box .field{margin-bottom:0}
     .settings-box .field label{font-size:12px;font-weight:600;color:var(--fg);display:block;margin-bottom:4px}
     .settings-box .field input,.settings-box .field textarea{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:13px;outline:none;background:#fff}
     .settings-box .field input:focus,.settings-box .field textarea:focus{border-color:#191919}
@@ -1530,7 +1530,7 @@
       <div class="field">
         <label>Espaçamento entre blocos</label>
         <div style="display:flex;align-items:center;gap:12px">
-          <input type="range" id="setSpacing" min="12" max="120" value="60" oninput="document.getElementById('setSpacingVal').textContent=this.value+'px'" style="flex:1" />
+          <input type="range" id="setSpacing" min="0" max="120" value="60" oninput="document.getElementById('setSpacingVal').textContent=this.value+'px'" style="flex:1" />
           <span id="setSpacingVal" style="font-size:13px;font-weight:500;min-width:40px;text-align:right">60px</span>
         </div>
       </div>
@@ -2719,6 +2719,7 @@ function resolveMediaUrl(item) {
     }
 
     function showToast(msg) {
+      if (!document.querySelector('.overlay.open') && !document.querySelector('.admin-panel[style*="block"]')) return;
       const t = document.getElementById('toast');
       t.textContent = msg;
       t.classList.add('show');
