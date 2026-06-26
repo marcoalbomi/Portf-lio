@@ -2233,15 +2233,18 @@ function resolveMediaUrl(item) {
       }
     }
 
-    function saveProjects() {
+    async function saveProjects() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-      if (typeof saveProjectsToSB === 'function') saveProjectsToSB().then(function() {
+      if (typeof saveProjectsToSB !== 'function') { console.warn('[Supabase] saveProjectsToSB not available'); return; }
+      showToast('Salvando no servidor...');
+      try {
+        await saveProjectsToSB();
         localStorage.setItem('od_sb_projects_ok', '1');
-      }).catch(function(e) {
+      } catch(e) {
         localStorage.removeItem('od_sb_projects_ok');
-        if (typeof showToast === 'function') showToast('Servidor offline — salvo apenas localmente');
-        console.warn('[Supabase] saveProjects catch:', e);
-      });
+        showToast('Erro no servidor: ' + e.message);
+        console.error('[Supabase] saveProjects error:', e);
+      }
     }
 
     async function migrateProjectsData() {
