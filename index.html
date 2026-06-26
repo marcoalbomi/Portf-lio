@@ -1563,8 +1563,8 @@
 
   <script>
     /* ── Supabase — via REST fetch (no client SDK dependency) ── */
-    const SB_URL = 'https://fcvzbzomkenmivrxzxqu.supabase.co';
-    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjdnpiem9ta2VubWl2cnh6eHF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNjcwNTgsImV4cCI6MjA5Nzk0MzA1OH0.-qPwHNP6t7V9Ur4eOV4b3n8nkuMplYOraBia-6mh7_0';
+    const SB_URL = 'https://ncupaiqjsqkuzjaeonkp.supabase.co';
+    const SB_KEY = 'sb_publishable_eKYDcWyTk650HaZO2h6Tsg_SyM2OxPl';
     const SB_HEADERS = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
     function sbFetch(path, opts) { return fetch(SB_URL + path, Object.assign({ headers: SB_HEADERS }, opts)); }
     function sbGet(path) { return sbFetch(path, { method: 'GET' }).then(function(r) { if (!r.ok) throw new Error('GET ' + path + ' ' + r.status); return r.json(); }); }
@@ -1648,6 +1648,29 @@
         return SB_URL + '/storage/v1/object/public/portfolio/' + path;
       } catch(e) {
         console.warn('[Supabase] uploadImage failed:', e.message);
+        return '';
+      }
+    }
+
+    async function uploadSiteImage(dataUrl, prefix, maxWidth, quality) {
+      try {
+        if (!dataUrl || !dataUrl.startsWith('data:')) return dataUrl;
+        var compressed = await compressImage(dataUrl, maxWidth || 1920, quality || 0.85);
+        var blob = dataUrlToBlob(compressed);
+        if (!blob) throw new Error('Invalid blob');
+        var ext = blob.type.split('/')[1] || 'jpg';
+        var safeExt = ext.replace(/[^a-z0-9]/gi, 'jpg');
+        var path = (prefix||'ss') + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8) + '.' + safeExt;
+        var bkt = 'site-images';
+        var resp = await retryFetch(SB_URL + '/storage/v1/object/' + bkt + '/' + path, {
+          method: 'POST',
+          headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': blob.type, 'x-upsert': 'true' },
+          body: blob
+        });
+        if (!resp.ok) throw new Error('Upload ' + resp.status);
+        return SB_URL + '/storage/v1/object/public/' + bkt + '/' + path;
+      } catch(e) {
+        console.warn('[Supabase] uploadSiteImage:', e.message);
         return '';
       }
     }
@@ -2657,6 +2680,10 @@ function resolveMediaUrl(item) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Mensagens
       </button>`;
+      html += `<button class="btn" onclick="showSiteSettings()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        Config. Site
+      </button>`;
       html += `<button class="btn" onclick="showPasswordForm()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         Senha
@@ -2735,8 +2762,41 @@ function resolveMediaUrl(item) {
       html += '<div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap"><button class="btn" onclick="cancelMessagesPanel()">Fechar</button><button class="btn" onclick="exportMessagesJSON()" style="color:var(--accent);border-color:var(--accent)">Exportar JSON</button><button class="btn" onclick="forceSyncAllFromSB();setTimeout(function(){renderMessagesList()},500)" style="color:var(--success);border-color:var(--success)">Sincronizar</button></div>';
       html += '</div>';
 
+      html += '<div class="admin-form" id="siteSettingsForm" style="display:none">';
+      html += '<h3 style="font-size:18px;font-weight:600;margin-bottom:8px">Configurações do Site</h3>';
+      html += '<p style="color:var(--muted);font-size:13px;margin-bottom:16px">Gerencie as informações gerais, imagens e SEO do site.</p>';
+      html += '<div class="field-row">';
+      html += '<div class="field"><label>Nome do Site</label><input type="text" id="ssSiteName" placeholder="Marco Albornoz" /></div>';
+      html += '<div class="field"><label>Cor Primária</label><input type="text" id="ssPrimaryColor" placeholder="#111111" /></div>';
+      html += '</div>';
+      html += '<div class="field-row">';
+      html += '<div class="field"><label>Cor Secundária</label><input type="text" id="ssSecondaryColor" placeholder="#f5f5f5" /></div>';
+      html += '<div class="field"><label>E-mail</label><input type="email" id="ssEmail" placeholder="contato@exemplo.com" /></div>';
+      html += '</div>';
+      html += '<div class="field-row">';
+      html += '<div class="field"><label>WhatsApp</label><input type="text" id="ssWhatsApp" placeholder="5511999999999" /></div>';
+      html += '<div class="field"><label>Instagram</label><input type="text" id="ssInstagram" placeholder="@seuperfil" /></div>';
+      html += '</div>';
+      html += '<div class="field-row">';
+      html += '<div class="field"><label>Facebook</label><input type="text" id="ssFacebook" placeholder="facebook.com/seuperfil" /></div>';
+      html += '<div class="field"><label>Endereço (opcional)</label><input type="text" id="ssAddress" placeholder="São Paulo, SP" /></div>';
+      html += '</div>';
+      html += '<hr style="border:none;border-top:1px solid #eee;margin:12px 0" />';
+      html += '<div style="margin-bottom:10px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Imagens</div>';
+      html += '<div class="field-row">';
+      html += '<div class="field"><label>Logo</label><div class="cover-upload-behance" id="ssLogoUpload" style="min-height:50px;padding:12px;border:1.5px dashed #ddd;border-radius:10px;text-align:center;cursor:pointer;background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;color:#aaa" onclick="document.getElementById(\'ssLogoInput\').click()"><span>Clique para selecionar</span></div><input type="file" id="ssLogoInput" accept="image/*" style="display:none" /><input type="hidden" id="ssLogoUrl" /></div>';
+      html += '<div class="field"><label>Favicon</label><div class="cover-upload-behance" id="ssFaviconUpload" style="min-height:50px;padding:12px;border:1.5px dashed #ddd;border-radius:10px;text-align:center;cursor:pointer;background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;color:#aaa" onclick="document.getElementById(\'ssFaviconInput\').click()"><span>Clique para selecionar</span></div><input type="file" id="ssFaviconInput" accept="image/*" style="display:none" /><input type="hidden" id="ssFaviconUrl" /></div>';
+      html += '</div>';
+      html += '<div class="field"><label>Banner Home</label><div class="cover-upload-behance" id="ssBannerUpload" style="min-height:50px;padding:12px;border:1.5px dashed #ddd;border-radius:10px;text-align:center;cursor:pointer;background:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;color:#aaa" onclick="document.getElementById(\'ssBannerInput\').click()"><span>Clique para selecionar</span></div><input type="file" id="ssBannerInput" accept="image/*" style="display:none" /><input type="hidden" id="ssBannerUrl" /></div>';
+      html += '<hr style="border:none;border-top:1px solid #eee;margin:12px 0" />';
+      html += '<div style="margin-bottom:10px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">SEO</div>';
+      html += '<div class="field"><label>Título SEO</label><input type="text" id="ssSeoTitle" placeholder="Portfólio · Marco Albornoz" /></div>';
+      html += '<div class="field"><label>Descrição SEO</label><textarea id="ssSeoDescription" rows="2" placeholder="Descrição curta para mecanismos de busca"></textarea></div>';
+      html += '<div style="display:flex;gap:10px;margin-top:12px;align-items:center"><button class="btn btn-primary" id="ssSaveBtn" onclick="saveSiteSettings()">Salvar</button><span id="ssSaveStatus" style="font-size:12px;color:var(--meta);min-height:18px"></span><button class="btn" onclick="cancelSiteSettings()" style="margin-left:auto">Fechar</button></div>';
+      html += '</div>';
+
       html += '<div class="admin-form" id="configForm" style="display:none">';
-      html += '<h3 style="font-size:18px;font-weight:600;margin-bottom:12px">Configurações do Site</h3>';
+      html += '<h3 style="font-size:18px;font-weight:600;margin-bottom:12px">Configurações de Perfil</h3>';
       html += '<div class="field"><label>Logo — Texto</label><input type="text" id="cfgLogoText" /></div>';
       html += '<div class="field-row"><div class="field"><label>Tipo</label><select id="cfgLogoType"><option value="text">Texto</option><option value="image">Imagem</option></select></div>';
       html += '<div class="field" id="cfgLogoUrlField" style="display:none"><label>Upload</label><div class="cover-upload-behance" id="cfgLogoUpload" style="min-height:60px;padding:12px;border:1.5px dashed #ddd;border-radius:10px;text-align:center;cursor:pointer;background:#fff"><div id="cfgLogoPreview" style="font-size:12px;color:#aaa">Selecionar imagem</div><input type="file" id="cfgLogoInput" accept="image/*" style="display:none" /></div><input type="hidden" id="cfgLogoUrl" /></div></div>';
@@ -2758,6 +2818,111 @@ function resolveMediaUrl(item) {
       html += '</div>';
 
       body.innerHTML = html;
+    }
+
+    /* ── Site Settings ── */
+    var ssData = null;
+    async function loadSiteSettings() { try { var r = await sbFetch('/rest/v1/site_settings?select=*', { method: 'GET' }); if (r.ok) { var d = await r.json(); if (d && d.length > 0) { ssData = d[0]; return ssData } } return null } catch (e) { console.warn('loadSiteSettings:', e); return null } }
+    function ssUpdatePreview(fieldId, url) {
+      var cont = document.getElementById(fieldId + 'Upload');
+      if (!cont) return;
+      if (url) { cont.innerHTML = '<img src="' + esc(url) + '" style="max-height:50px;border-radius:4px;display:block;margin:0 auto" />'; cont.style.borderColor = 'var(--success)'; cont.style.cursor = 'default' } else { cont.innerHTML = '<span>Clique para selecionar</span>'; cont.style.borderColor = '#ddd'; cont.style.cursor = 'pointer' }
+    }
+    function showSiteSettings() {
+      document.getElementById('adminForm').className = 'admin-form';
+      document.getElementById('passwordForm').style.display = 'none';
+      document.getElementById('configForm').style.display = 'none';
+      document.getElementById('socialForm').style.display = 'none';
+      document.getElementById('messagesForm').style.display = 'none';
+      document.getElementById('siteSettingsForm').style.display = 'flex';
+      var btn = document.getElementById('ssSaveBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Carregando...' }
+      loadSiteSettings().then(function(data) {
+        if (!data) data = {};
+        document.getElementById('ssSiteName').value = data.site_name || '';
+        document.getElementById('ssPrimaryColor').value = data.primary_color || '#111111';
+        document.getElementById('ssSecondaryColor').value = data.secondary_color || '#f5f5f5';
+        document.getElementById('ssEmail').value = data.email || '';
+        document.getElementById('ssWhatsApp').value = data.whatsapp || '';
+        document.getElementById('ssInstagram').value = data.instagram || '';
+        document.getElementById('ssFacebook').value = data.facebook || '';
+        document.getElementById('ssAddress').value = data.address || '';
+        document.getElementById('ssSeoTitle').value = data.seo_title || '';
+        document.getElementById('ssSeoDescription').value = data.seo_description || '';
+        document.getElementById('ssLogoUrl').value = data.logo_url || '';
+        document.getElementById('ssFaviconUrl').value = data.favicon_url || '';
+        document.getElementById('ssBannerUrl').value = data.banner_home_url || '';
+        ssUpdatePreview('ssLogo', data.logo_url);
+        ssUpdatePreview('ssFavicon', data.favicon_url);
+        ssUpdatePreview('ssBanner', data.banner_home_url);
+        if (btn) { btn.disabled = false; btn.textContent = 'Salvar' }
+        document.getElementById('ssSaveStatus').textContent = '';
+      }).catch(function(e) {
+        console.warn('showSiteSettings:', e);
+        if (btn) { btn.disabled = false; btn.textContent = 'Salvar' }
+      });
+      setupSSUploads();
+    }
+    function cancelSiteSettings() { document.getElementById('siteSettingsForm').style.display = 'none' }
+    function setupSSUploads() {
+      ['ssLogo', 'ssFavicon', 'ssBanner'].forEach(function(id) {
+        var inp = document.getElementById(id + 'Input');
+        if (inp) {
+          inp.onchange = function(ev) {
+            var f = ev.target.files && ev.target.files[0]; if (!f) return;
+            var uploadDiv = document.getElementById(id + 'Upload');
+            if (uploadDiv) uploadDiv.innerHTML = '<span style="font-size:12px;color:#999">Enviando...</span>';
+            var r = new FileReader();
+            r.onload = function(ev2) {
+              var dataUrl = ev2.target.result;
+              uploadSiteImage(dataUrl, 'ss_' + id, 1920, 0.85).then(function(url) {
+                if (url) {
+                  document.getElementById(id + 'Url').value = url;
+                  ssUpdatePreview(id, url);
+                } else {
+                  if (uploadDiv) uploadDiv.innerHTML = '<span style="font-size:12px;color:var(--danger)">Erro ao enviar</span>'
+                }
+              });
+            };
+            r.readAsDataURL(f);
+          };
+        }
+      });
+    }
+    async function saveSiteSettings() {
+      var btn = document.getElementById('ssSaveBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Salvando...' }
+      var statusEl = document.getElementById('ssSaveStatus');
+      if (statusEl) statusEl.textContent = '';
+      var data = {
+        site_name: document.getElementById('ssSiteName').value || 'Marco Albornoz',
+        logo_url: document.getElementById('ssLogoUrl').value || '',
+        favicon_url: document.getElementById('ssFaviconUrl').value || '',
+        banner_home_url: document.getElementById('ssBannerUrl').value || '',
+        primary_color: document.getElementById('ssPrimaryColor').value || '#111111',
+        secondary_color: document.getElementById('ssSecondaryColor').value || '#f5f5f5',
+        whatsapp: document.getElementById('ssWhatsApp').value || '',
+        email: document.getElementById('ssEmail').value || '',
+        instagram: document.getElementById('ssInstagram').value || '',
+        facebook: document.getElementById('ssFacebook').value || '',
+        address: document.getElementById('ssAddress').value || '',
+        seo_title: document.getElementById('ssSeoTitle').value || '',
+        seo_description: document.getElementById('ssSeoDescription').value || ''
+      };
+      try {
+        if (ssData && ssData.id) {
+          await sbFetch('/rest/v1/site_settings?id=eq.' + ssData.id, { method: 'PATCH', headers: SB_HEADERS, body: JSON.stringify(data) });
+        } else {
+          var r = await sbFetch('/rest/v1/site_settings', { method: 'POST', headers: SB_HEADERS, body: JSON.stringify(data) });
+          if (r.ok) try { var j = await r.json(); if (Array.isArray(j) && j.length > 0) ssData = j[0]; else ssData = j } catch (e) { }
+        }
+        if (statusEl) { statusEl.textContent = 'Salvo com sucesso!'; statusEl.style.color = 'var(--success)' }
+        showToast('Configurações do site salvas!')
+      } catch (e) {
+        if (statusEl) { statusEl.textContent = 'Erro: ' + e.message; statusEl.style.color = 'var(--danger)' }
+        console.warn('saveSiteSettings:', e)
+      }
+      if (btn) { btn.disabled = false; btn.textContent = 'Salvar' }
     }
 
     function showPasswordForm() {

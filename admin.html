@@ -366,6 +366,10 @@ input,textarea,select{font:inherit}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
         Configurar
       </button>
+      <button class="btn-tool" onclick="showSiteSettings()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        Config. Site
+      </button>
       <button class="btn-tool" onclick="showSocialPanel()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
         Redes Sociais
@@ -463,6 +467,89 @@ input,textarea,select{font:inherit}
       <div id="syncStatus" style="margin-top:8px;font-size:12px;color:var(--muted);min-height:18px"></div>
     </div>
 
+    <!-- ── Site Settings Panel ── -->
+    <div class="config-panel" id="siteSettingsPanel">
+      <h2>Configurações do Site</h2>
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Gerencie as informações gerais, imagens e SEO do site.</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nome do Site</label>
+          <input type="text" id="ssSiteName" placeholder="Marco Albornoz" />
+        </div>
+        <div class="form-group">
+          <label>Cor Primária</label>
+          <input type="text" id="ssPrimaryColor" placeholder="#111111" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Cor Secundária</label>
+          <input type="text" id="ssSecondaryColor" placeholder="#f5f5f5" />
+        </div>
+        <div class="form-group">
+          <label>E-mail</label>
+          <input type="email" id="ssEmail" placeholder="contato@exemplo.com" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>WhatsApp</label>
+          <input type="text" id="ssWhatsApp" placeholder="5511999999999" />
+        </div>
+        <div class="form-group">
+          <label>Instagram</label>
+          <input type="text" id="ssInstagram" placeholder="@seuperfil" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Facebook</label>
+          <input type="text" id="ssFacebook" placeholder="facebook.com/seuperfil" />
+        </div>
+        <div class="form-group">
+          <label>Endereço (opcional)</label>
+          <input type="text" id="ssAddress" placeholder="São Paulo, SP" />
+        </div>
+      </div>
+      <hr class="config-sep" />
+      <div style="margin-bottom:16px;font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Imagens</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Logo</label>
+          <div id="ssLogoPreview" style="padding:12px;border:1.5px dashed #ddd;border-radius:10px;text-align:center;font-size:12px;color:var(--meta);cursor:pointer;margin-bottom:6px;min-height:50px;display:flex;align-items:center;justify-content:center" onclick="document.getElementById('ssLogoInput').click()">Clique para selecionar</div>
+          <input type="file" id="ssLogoInput" accept="image/*" style="display:none" />
+          <input type="hidden" id="ssLogoUrl" />
+        </div>
+        <div class="form-group">
+          <label>Favicon</label>
+          <div id="ssFaviconPreview" style="padding:12px;border:1.5px dashed #ddd;border-radius:10px;text-align:center;font-size:12px;color:var(--meta);cursor:pointer;margin-bottom:6px;min-height:50px;display:flex;align-items:center;justify-content:center" onclick="document.getElementById('ssFaviconInput').click()">Clique para selecionar</div>
+          <input type="file" id="ssFaviconInput" accept="image/*" style="display:none" />
+          <input type="hidden" id="ssFaviconUrl" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Banner Home</label>
+        <div id="ssBannerPreview" style="padding:12px;border:1.5px dashed #ddd;border-radius:10px;text-align:center;font-size:12px;color:var(--meta);cursor:pointer;margin-bottom:6px;min-height:50px;display:flex;align-items:center;justify-content:center" onclick="document.getElementById('ssBannerInput').click()">Clique para selecionar</div>
+        <input type="file" id="ssBannerInput" accept="image/*" style="display:none" />
+        <input type="hidden" id="ssBannerUrl" />
+      </div>
+      <hr class="config-sep" />
+      <div style="margin-bottom:16px;font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">SEO</div>
+      <div class="form-group">
+        <label>Título SEO</label>
+        <input type="text" id="ssSeoTitle" placeholder="Portfólio · Marco Albornoz" />
+      </div>
+      <div class="form-group">
+        <label>Descrição SEO</label>
+        <textarea id="ssSeoDescription" rows="3" placeholder="Descrição curta para mecanismos de busca"></textarea>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px;align-items:center">
+        <button class="btn-new" id="ssSaveBtn" onclick="saveSiteSettings()">Salvar</button>
+        <span id="ssSaveStatus" style="font-size:12px;color:var(--meta);min-height:18px"></span>
+        <button class="btn-tool" onclick="closeSiteSettings()" style="margin-left:auto">Fechar</button>
+      </div>
+    </div>
+
 <!-- ── EDITOR (Behance-style) ── -->
 <div class="editor-overlay" id="editorOverlay" onclick="closeEditor()"></div>
 <div class="editor-container" id="editorContainer">
@@ -557,8 +644,8 @@ input,textarea,select{font:inherit}
 
 <script>
 const SK='od_portfolio_projects',PK='od_portfolio_password',CK='od_portfolio_config',DP='marcoalbomi1234';
-const SB_URL='https://fcvzbzomkenmivrxzxqu.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjdnpiem9ta2VubWl2cnh6eHF1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNjcwNTgsImV4cCI6MjA5Nzk0MzA1OH0.-qPwHNP6t7V9Ur4eOV4b3n8nkuMplYOraBia-6mh7_0';
+const SB_URL='https://ncupaiqjsqkuzjaeonkp.supabase.co';
+const SB_KEY='sb_publishable_eKYDcWyTk650HaZO2h6Tsg_SyM2OxPl';
 const SB_HEADERS={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'};
 function sbf(p,o){return fetch(SB_URL+p,Object.assign({headers:SB_HEADERS},o))}
 function sbg(p){return sbf(p,{method:'GET'}).then(function(r){if(!r.ok)throw new Error('GET '+p+' '+r.status);return r.json()})}
@@ -568,6 +655,7 @@ function du2b2(d){var p=d.split(','),mm=p[0].match(/:(.*?);/);if(!mm)return null
 async function compressImage(d,mx,q){mx=mx||1920;q=q||0.85;return new Promise(function(res){var i=new Image();i.onload=function(){var w=i.width,h=i.height;if(w>mx){h=Math.round(h*mx/w);w=mx}var c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(i,0,0,w,h);res(c.toDataURL('image/jpeg',q))};i.onerror=function(){res(d)};i.src=d})}
 function retryFetch(u,o,n){n=n||3;return fetch(u,o).then(function(r){if(!r.ok&&n>0){return new Promise(function(res){setTimeout(function(){res(retryFetch(u,o,n-1))},1000)})}if(!r.ok){return r.text().then(function(t){throw new Error('HTTP '+r.status+': '+(t||''))})}return r})}
 async function uploadImage(d,p,mx,q){try{if(!d||!d.startsWith('data:'))return d;var cc=await compressImage(d,mx||1920,q||0.85);var b=du2b2(cc);if(!b)throw new Error('Invalid blob');var e=b.type.split('/')[1]||'jpg',x=e.replace(/[^a-z0-9]/gi,'jpg'),fn=(p||'img')+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)+'.'+x;console.log('[Supabase] Uploading',fn,'-',Math.round(b.size/1024)+'KB');var r=await retryFetch(SB_URL+'/storage/v1/object/portfolio/'+fn,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':b.type,'x-upsert':'true'},body:b});if(!r.ok)throw new Error('Upload '+r.status);console.log('[Supabase] Upload OK —',fn);return SB_URL+'/storage/v1/object/public/portfolio/'+fn}catch(e){console.warn('[Supabase] uploadImage:',e.message);return''}}
+async function uploadSiteImage(d,p,mx,q){try{if(!d||!d.startsWith('data:'))return d;var cc=await compressImage(d,mx||1920,q||0.85);var b=du2b2(cc);if(!b)throw new Error('Invalid blob');var e=b.type.split('/')[1]||'jpg',x=e.replace(/[^a-z0-9]/gi,'jpg'),fn=(p||'ss')+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8)+'.'+x;var bkt='site-images';var r=await retryFetch(SB_URL+'/storage/v1/object/'+bkt+'/'+fn,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':b.type,'x-upsert':'true'},body:b});if(!r.ok)throw new Error('Upload '+r.status);return SB_URL+'/storage/v1/object/public/'+bkt+'/'+fn}catch(e){console.warn('[Supabase] uploadSiteImage:',e.message);return''}}
 async function resolveCover(c,p){if(!c)return'';if(c.startsWith('http')&&c.indexOf('supabase.co')>0)return c;if(c.startsWith(SB_URL))return c;var du=null;if(c.startsWith('data:')){du=c}else if(typeof MediaDB!=='undefined'&&MediaDB.getDataUrl){try{du=await MediaDB.getDataUrl(c)}catch(e){}}if(!du)return'';var r=await uploadImage(du,p,1920,0.85);if(r)return r;console.log('[Supabase] Retry 1 — 1200px, quality 0.7');r=await uploadImage(du,p,1200,0.7);if(r)return r;console.log('[Supabase] Retry 2 — 800px, quality 0.5');r=await uploadImage(du,p,800,0.5);if(!r)console.warn('[Supabase] All 3 upload attempts failed for',p);return r}
 
 function remapProjectFromDB(p,i){return{id:i,title:p.title||'',tag:p.category||'',desc:p.description||'',cover:p.image||'',sort_order:p.sort_order??i}}
@@ -580,6 +668,100 @@ function testSupabase(){var b=event&&event.target?event.target.closest('button')
 async function saveProjectsToSB(){console.log('[Supabase] saveProjectsToSB() — projects.length=',projects?projects.length:'undefined');if(!projects){console.log('[Supabase] projects falsy, aborting');return}try{console.log('[Supabase] DELETE all...');await sbd('/rest/v1/portfolio_projects?id=gte.0');console.log('[Supabase] DELETE OK. Resolving covers in parallel...');var results=await Promise.all(projects.map(function(p,i){return resolveCover(p.cover||'','proj_'+i).then(function(url){console.log('[Supabase] Project',i,'('+p.title+') cover:',url?'OK':'LOCAL-ONLY');return{index:i,url:url||'',title:p.title||'',category:p.tag||'',description:p.desc||''}})}));var rows=results.sort(function(a,b){return a.index-b.index}).map(function(r){return{title:r.title,category:r.category,description:r.description,image:r.url,link:'',sort_order:r.index}});if(rows.length===0){console.log('[Supabase] No rows');return}console.log('[Supabase] POSTING',rows.length,'rows...');await sbp('/rest/v1/portfolio_projects',rows);console.log('[Supabase] POST OK');for(var k=0;k<rows.length;k++){if(rows[k].image&&projects[k])projects[k].cover=rows[k].image}localStorage.setItem(SK,JSON.stringify(projects));localStorage.setItem('od_sb_projects_ok','1')}catch(e){console.error('[Supabase] FAILED:',e);localStorage.removeItem('od_sb_projects_ok')}}
 async function saveConfigToSB(){if(!sc)return;try{var cfg=JSON.parse(JSON.stringify(sc));if(cfg.logoType==='image'&&cfg.logoUrl&&cfg.logoUrl.startsWith('data:'))cfg.logoUrl=await uploadImage(cfg.logoUrl,'logo');if(cfg.aboutPhoto&&cfg.aboutPhoto.startsWith('data:'))cfg.aboutPhoto=await uploadImage(cfg.aboutPhoto,'about');var rows=Object.entries(cfg).map(function(e){return{key:e[0],value:JSON.stringify(e[1])}});for(var i=0;i<rows.length;i++){try{await sbp('/rest/v1/portfolio_config?on_conflict=key',rows[i])}catch(e2){await sbd('/rest/v1/portfolio_config?key=eq.'+encodeURIComponent(rows[i].key));await sbp('/rest/v1/portfolio_config',rows[i])}}}catch(e){console.warn('Supabase save config:',e)}}
 async function saveMessagesToSB(){try{await sbd('/rest/v1/portfolio_messages?id=gte.0');var msgs=JSON.parse(localStorage.getItem('od_portfolio_messages')||'[]');var rows=msgs.map(function(m){return{name:m.name||'',email:m.email||'',message:m.message||''}});if(rows.length===0)return;await sbp('/rest/v1/portfolio_messages',rows);localStorage.setItem('od_sb_messages_ok','1')}catch(e){console.warn('Supabase save messages:',e);localStorage.removeItem('od_sb_messages_ok')}}
+/* ── Site Settings ── */
+let ssData=null;
+async function loadSiteSettings(){try{var d=await sbg('/rest/v1/site_settings?select=*');if(d&&d.length>0){ssData=d[0];return ssData}return null}catch(e){console.warn('loadSiteSettings:',e);return null}}
+function ssFieldPreview(fieldId,url,isImg){
+  var cont=document.getElementById(fieldId+'Preview');if(!cont)return;
+  if(url){cont.innerHTML=isImg!==false?`<img src="${eh(url)}" style="max-height:60px;border-radius:4px;display:block;margin:0 auto" />`:`<span style="font-size:13px;color:var(--fg)">${eh(url)}</span>`;cont.style.borderColor='var(--success)';cont.style.cursor='default'}else{cont.innerHTML='Clique para selecionar';cont.style.borderColor='#ddd';cont.style.cursor='pointer'}
+}
+async function showSiteSettings(){
+  closeConfigPanel();closeMessagesPanel();closeSocialPanel();closeLogsPanel();
+  document.getElementById('siteSettingsPanel').classList.add('visible');
+  var btn=document.getElementById('ssSaveBtn');btn.disabled=true;btn.textContent='Carregando...';
+  try{
+    var data=await loadSiteSettings();if(!data)data={};
+    document.getElementById('ssSiteName').value=data.site_name||'';
+    document.getElementById('ssPrimaryColor').value=data.primary_color||'#111111';
+    document.getElementById('ssSecondaryColor').value=data.secondary_color||'#f5f5f5';
+    document.getElementById('ssEmail').value=data.email||'';
+    document.getElementById('ssWhatsApp').value=data.whatsapp||'';
+    document.getElementById('ssInstagram').value=data.instagram||'';
+    document.getElementById('ssFacebook').value=data.facebook||'';
+    document.getElementById('ssAddress').value=data.address||'';
+    document.getElementById('ssSeoTitle').value=data.seo_title||'';
+    document.getElementById('ssSeoDescription').value=data.seo_description||'';
+    document.getElementById('ssLogoUrl').value=data.logo_url||'';
+    document.getElementById('ssFaviconUrl').value=data.favicon_url||'';
+    document.getElementById('ssBannerUrl').value=data.banner_home_url||'';
+    ssFieldPreview('ssLogo',data.logo_url);
+    ssFieldPreview('ssFavicon',data.favicon_url);
+    ssFieldPreview('ssBanner',data.banner_home_url);
+  }catch(e){console.warn('showSiteSettings:',e)}
+  btn.disabled=false;btn.textContent='Salvar';
+  document.getElementById('ssSaveStatus').textContent=''
+}
+function closeSiteSettings(){document.getElementById('siteSettingsPanel').classList.remove('visible')}
+window.setupSSFileInput=function(id,fieldName){
+  var inp=document.getElementById(id);
+  if(!inp)return;
+  inp.onchange=async function(ev){
+    var f=ev.target.files&&ev.target.files[0];if(!f)return;
+    var cont=document.getElementById(id.replace('Input','Preview'));
+    if(cont){cont.innerHTML='<span style="font-size:12px;color:#999">Enviando...</span>'}
+    var r=new FileReader();
+    r.onload=async function(ev2){
+      var dataUrl=ev2.target.result;
+      var url=await uploadSiteImage(dataUrl,'ss_'+fieldName,1920,0.85);
+      if(url){
+        document.getElementById(id.replace('Input','Url')).value=url;
+        ssFieldPreview(id.replace('Input',''),url);
+      }else{
+        if(cont)cont.innerHTML='<span style="font-size:12px;color:var(--danger)">Erro ao enviar</span>'
+      }
+    };
+    r.readAsDataURL(f)
+  }
+};
+async function saveSiteSettings(){
+  var btn=document.getElementById('ssSaveBtn');btn.disabled=true;btn.textContent='Salvando...';
+  document.getElementById('ssSaveStatus').textContent='';
+  var data={
+    site_name:document.getElementById('ssSiteName').value||'Marco Albornoz',
+    logo_url:document.getElementById('ssLogoUrl').value||'',
+    favicon_url:document.getElementById('ssFaviconUrl').value||'',
+    banner_home_url:document.getElementById('ssBannerUrl').value||'',
+    primary_color:document.getElementById('ssPrimaryColor').value||'#111111',
+    secondary_color:document.getElementById('ssSecondaryColor').value||'#f5f5f5',
+    whatsapp:document.getElementById('ssWhatsApp').value||'',
+    email:document.getElementById('ssEmail').value||'',
+    instagram:document.getElementById('ssInstagram').value||'',
+    facebook:document.getElementById('ssFacebook').value||'',
+    address:document.getElementById('ssAddress').value||'',
+    seo_title:document.getElementById('ssSeoTitle').value||'',
+    seo_description:document.getElementById('ssSeoDescription').value||''
+  };
+  try{
+    if(ssData&&ssData.id){
+      await sbf('/rest/v1/site_settings?id=eq.'+ssData.id,{method:'PATCH',headers:SB_HEADERS,body:JSON.stringify(data)});
+    }else{
+      var r=await sbf('/rest/v1/site_settings',{method:'POST',headers:SB_HEADERS,body:JSON.stringify(data)});
+      if(r.ok)try{ssData=await r.json()}catch(e){}
+    }
+    document.getElementById('ssSaveStatus').textContent='Salvo com sucesso!';
+    document.getElementById('ssSaveStatus').style.color='var(--success)';
+    showToast('Configurações do site salvas!')
+  }catch(e){document.getElementById('ssSaveStatus').textContent='Erro: '+e.message;document.getElementById('ssSaveStatus').style.color='var(--danger)';console.warn('saveSiteSettings:',e)}
+  btn.disabled=false;btn.textContent='Salvar'
+}
+// Init file inputs on load
+document.addEventListener('DOMContentLoaded',function(){
+  setupSSFileInput('ssLogoInput','logo');
+  setupSSFileInput('ssFaviconInput','favicon');
+  setupSSFileInput('ssBannerInput','banner')
+});
+function closeLogsPanel(){}
+
 function tryParseJSON(str){try{return JSON.parse(str)}catch{return str}}
 const MediaDB={_db:null,_cache:new Map(),_urlCache:new Map(),async init(){try{this._db=await new Promise((res,rej)=>{const r=indexedDB.open('PortfolioImagesDB',1);r.onupgradeneeded=e=>{if(!e.target.result.objectStoreNames.contains('media'))e.target.result.createObjectStore('media',{keyPath:'id'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});const tx=this._db.transaction('media','readonly');const all=await new Promise((res,rej)=>{const r=tx.objectStore('media').getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});for(const rec of all)this._cache.set(rec.id,rec.blob);if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{})}catch(e){console.warn('MediaDB:',e)}},async store(id,blob){return new Promise((res,rej)=>{const tx=this._db.transaction('media','readwrite');tx.objectStore('media').put({id,blob,ts:Date.now()});tx.oncomplete=()=>{this._cache.set(id,blob);if(this._urlCache.has(id)){URL.revokeObjectURL(this._urlCache.get(id));this._urlCache.delete(id)}res()};tx.onerror=()=>rej(tx.error)})},getObjectUrl(id){if(this._urlCache.has(id))return this._urlCache.get(id);const blob=this._cache.get(id);if(!blob)return null;const url=URL.createObjectURL(blob);this._urlCache.set(id,url);return url},getBlob(id){return this._cache.get(id)||null},async getDataUrl(id){const blob=this._cache.get(id);if(!blob)return null;return new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(blob)})},async remove(id){this._cache.delete(id);if(this._urlCache.has(id)){URL.revokeObjectURL(this._urlCache.get(id));this._urlCache.delete(id)}return new Promise((res,rej)=>{const tx=this._db.transaction('media','readwrite');tx.objectStore('media').delete(id);tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})},async clear(){for(const u of this._urlCache.values())URL.revokeObjectURL(u);this._cache.clear();this._urlCache.clear();return new Promise((res,rej)=>{const tx=this._db.transaction('media','readwrite');tx.objectStore('media').clear();tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})},async count(){return this._cache.size}};
 function gid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,9)}
