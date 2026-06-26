@@ -1683,9 +1683,9 @@
 
     async function syncProjectsFromSB(force) {
       try {
-        var localOk = localStorage.getItem('od_sb_projects_ok');
-        if (!force && !localOk) {
-          console.log('[Supabase] syncProjectsFromSB() — skipping (no confirmed save yet)');
+        var localData = localStorage.getItem('od_portfolio_projects');
+        if (!force && localData) {
+          console.log('[Supabase] syncProjectsFromSB() — has local data, skipping');
           return;
         }
         console.log('[Supabase] syncProjectsFromSB() — fetching from server...');
@@ -1693,6 +1693,7 @@
         if (data && data.length > 0) {
           const mapped = data.map(remapProjectFromDB);
           localStorage.setItem('od_portfolio_projects', JSON.stringify(mapped));
+          localStorage.setItem('od_sb_projects_ok', '1');
           console.log('[Supabase] syncProjectsFromSB() — loaded', mapped.length, 'projects from server');
           if (typeof projects !== 'undefined') {
             projects = mapped;
@@ -1706,9 +1707,9 @@
 
     async function syncConfigFromSB(force) {
       try {
-        var localOk = localStorage.getItem('od_sb_config_ok');
-        if (!force && !localOk) {
-          console.log('[Supabase] syncConfigFromSB() — skipping (no confirmed save yet)');
+        var localData = localStorage.getItem('od_portfolio_config');
+        if (!force && localData) {
+          console.log('[Supabase] syncConfigFromSB() — has local data, skipping');
           return;
         }
         const data = await sbGet('/rest/v1/portfolio_config?select=key,value');
@@ -1716,6 +1717,7 @@
           const cfg = {};
           data.forEach(function(c) { cfg[c.key] = tryParseJSON(c.value); });
           localStorage.setItem('od_portfolio_config', JSON.stringify(cfg));
+          localStorage.setItem('od_sb_config_ok', '1');
           if (typeof siteConfig !== 'undefined') {
             siteConfig = cfg;
             if (typeof updateLogo === 'function') updateLogo();
@@ -1726,14 +1728,15 @@
 
     async function syncMessagesFromSB(force) {
       try {
-        var localOk = localStorage.getItem('od_sb_messages_ok');
-        if (!force && !localOk) {
-          console.log('[Supabase] syncMessagesFromSB() — skipping (no confirmed save yet)');
+        var localData = localStorage.getItem('od_portfolio_messages');
+        if (!force && localData) {
+          console.log('[Supabase] syncMessagesFromSB() — has local data, skipping');
           return;
         }
         const data = await sbGet('/rest/v1/portfolio_messages?select=*&order=created_at.desc');
         if (data && data.length > 0) {
           localStorage.setItem('od_portfolio_messages', JSON.stringify(data));
+          localStorage.setItem('od_sb_messages_ok', '1');
           var fp = document.getElementById('messagesForm');
           if (fp && fp.style.display === 'flex' && typeof renderMessagesList === 'function') renderMessagesList();
         }
@@ -1764,17 +1767,22 @@
         for (var i = 0; i < projects.length; i++) {
           var p = projects[i];
           var imgUrl = p.cover || '';
-          console.log('[Supabase] Project', i, '— title:', p.title, 'cover type:', typeof imgUrl, imgUrl ? imgUrl.substring(0, 50) : '(empty)');
+          console.log('[Supabase] Project', i, '— title:', p.title, 'cover type:', typeof imgUrl);
+          /* resolveCover agora é a VERSÃO SUPABASE (upload para Storage) */
           imgUrl = await resolveCover(imgUrl, 'proj_' + i);
+          if (imgUrl) console.log('[Supabase] Cover resolved to:', imgUrl.substring(0, 80));
+          else console.log('[Supabase] Cover resolved to empty (will keep local dataUrl)');
           rows.push({ title: p.title||'', category: p.tag||'', description: p.desc||'', image: imgUrl, link: '', sort_order: i });
         }
         if (rows.length === 0) { console.log('[Supabase] No rows to save, aborting'); return; }
         console.log('[Supabase] POSTING', rows.length, 'rows to Supabase...');
         await sbPost('/rest/v1/portfolio_projects', rows);
         console.log('[Supabase] POST OK — projects saved successfully');
+        localStorage.setItem('od_sb_projects_ok', '1');
         if (typeof showToast === 'function') showToast('Projetos salvos no servidor');
       } catch(e) {
         console.error('[Supabase] saveProjectsToSB FAILED:', e);
+        localStorage.removeItem('od_sb_projects_ok');
         if (typeof showToast === 'function') showToast('Erro ao salvar projetos no servidor: ' + e.message);
       }
     }
@@ -1976,10 +1984,11 @@ function resolveMediaUrl(item) {
       }
       return item.dataUrl || null;
     }
-    function resolveCover(p) {
+    function resolveCoverLocal(p) {
       if (!p) return null;
       if (!p.cover) return null;
       if (p.cover.startsWith('http') || p.cover.startsWith('data:')) return p.cover;
+      if (p.cover.startsWith(SB_URL)) return p.cover;
       const url = MediaDB.getObjectUrl(p.cover);
       if (url) return url;
       return null;
@@ -2164,7 +2173,7 @@ function resolveMediaUrl(item) {
           card.className = 'carousel-card';
           card.dataset.projectId = p.id;
           card.dataset.isProject = 'true';
-          const coverImg = resolveCover(p) || (p.media && p.media.length > 0 && p.media[0].type.startsWith('image/') ? resolveMediaUrl(p.media[0]) : null);
+          const coverImg = resolveCoverLocal(p) || (p.media && p.media.length > 0 && p.media[0].type.startsWith('image/') ? resolveMediaUrl(p.media[0]) : null);
           let coverHtml;
           if (coverImg) {
             const idx = p.id;
@@ -2435,7 +2444,7 @@ function resolveMediaUrl(item) {
       const nextProj = projects[nextIdx];
       let nextCover = null;
       if (nextProj) {
-        nextCover = resolveCover(nextProj) || (nextProj.media && nextProj.media.length > 0 && nextProj.media[0].type.startsWith('image/') ? resolveMediaUrl(nextProj.media[0]) : null);
+        nextCover = resolveCoverLocal(nextProj) || (nextProj.media && nextProj.media.length > 0 && nextProj.media[0].type.startsWith('image/') ? resolveMediaUrl(nextProj.media[0]) : null);
       }
 
       body.innerHTML = `
@@ -2685,7 +2694,7 @@ function resolveMediaUrl(item) {
         html += '<div class="admin-empty"><div class="empty-icon">⬡</div><h3>Nenhum projeto ainda</h3><p>Adicione seu primeiro projeto clicando em "Novo Projeto".</p></div>';
       } else {
         projects.forEach(p => {
-          const cover = resolveCover(p) || (p.media && p.media.length > 0 && p.media[0].type.startsWith('image/') ? resolveMediaUrl(p.media[0]) : null);
+          const cover = resolveCoverLocal(p) || (p.media && p.media.length > 0 && p.media[0].type.startsWith('image/') ? resolveMediaUrl(p.media[0]) : null);
           const mediaCount = p.media ? p.media.length : 0;
           html += `
             <div class="admin-project-card">
@@ -3524,7 +3533,7 @@ function resolveMediaUrl(item) {
       document.getElementById('setSpacing').value = settingsTemp.blockSpacing;
       document.getElementById('setSpacingVal').textContent = settingsTemp.blockSpacing + 'px';
       const cp = document.getElementById('setCoverPreview');
-      const cu = resolveCover({ cover: settingsTemp.cover }) || '';
+      const cu = resolveCoverLocal({ cover: settingsTemp.cover }) || '';
       cp.innerHTML = cu ? `<img src="${esc(cu)}" class="cover-preview" alt="" /><button onclick="removeSettingsCover()" style="padding:4px 10px;border:1px solid #ddd;border-radius:6px;background:#fff;color:#999;font-size:12px;margin-top:4px;cursor:pointer">Remover capa</button>` : '<div style="color:#bbb;font-size:13px;padding:12px 0">Nenhuma capa selecionada</div>';
       const si = document.getElementById('setCoverInput');
       si.onchange = ev => {
