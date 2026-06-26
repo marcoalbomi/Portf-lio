@@ -1755,11 +1755,6 @@
 
     async function syncProjectsFromSB() {
       try {
-        var localData = localStorage.getItem('od_portfolio_projects');
-        if (localData && localData !== '[]') {
-          console.log('[Supabase] syncProjects — local data exists, skipping overwrite');
-          return;
-        }
         console.log('[Supabase] syncProjectsFromSB() — fetching from server...');
         const data = await sbGet('/rest/v1/portfolio_projects?select=*&order=sort_order.asc');
         if (data && data.length > 0) {
@@ -1779,11 +1774,6 @@
 
     async function syncConfigFromSB() {
       try {
-        var localData = localStorage.getItem('od_portfolio_config');
-        if (localData && localData !== '{}') {
-          console.log('[Supabase] syncConfig — local data exists, skipping overwrite');
-          return;
-        }
         const data = await sbGet('/rest/v1/portfolio_config?select=key,value');
         if (data && data.length > 0) {
           const cfg = {};
@@ -1800,11 +1790,6 @@
 
     async function syncMessagesFromSB() {
       try {
-        var localData = localStorage.getItem('od_portfolio_messages');
-        if (localData && localData !== '[]') {
-          console.log('[Supabase] syncMessages — local data exists, skipping overwrite');
-          return;
-        }
         const data = await sbGet('/rest/v1/portfolio_messages?select=*&order=created_at.desc');
         if (data && data.length > 0) {
           localStorage.setItem('od_portfolio_messages', JSON.stringify(data));
@@ -1956,7 +1941,8 @@
             await sbPost('/rest/v1/portfolio_config', rows[i]);
           }
         }
-      } catch(e) { console.warn('Supabase save config failed:', e); }
+        localStorage.setItem('od_sb_config_ok', '1');
+      } catch(e) { console.warn('Supabase save config failed:', e); localStorage.removeItem('od_sb_config_ok'); }
     }
 
     async function saveMessagesToSB() {
