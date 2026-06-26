@@ -1829,11 +1829,17 @@
               if (m.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
                 try { du = await MediaDB.getDataUrl(m.mediaId); } catch(e) {}
               } else if (m.dataUrl) { du = m.dataUrl; }
-              if (isVideo && du && du.startsWith('data:')) {
-                console.log('[Supabase] Uploading video media:', m.name);
-                var vUrl = await uploadBlobToStorage(du, 'vid');
-                if (vUrl) { item.url = vUrl; } else { item.dataUrl = du; }
-              } else {
+              if (du && du.startsWith('data:')) {
+                if (isVideo) {
+                  console.log('[Supabase] Uploading video media:', m.name);
+                  var vUrl = await uploadBlobToStorage(du, 'vid');
+                  if (vUrl) { item.url = vUrl; } else { item.dataUrl = du; }
+                } else {
+                  console.log('[Supabase] Uploading image media:', m.name);
+                  var imgUrl = await uploadImage(du, 'med', 1600, 0.8);
+                  if (imgUrl) { item.url = imgUrl; } else { item.dataUrl = du; }
+                }
+              } else if (du) {
                 item.dataUrl = du;
               }
               return item;
@@ -1841,20 +1847,37 @@
           }
           if (payload.blocks && payload.blocks.length) {
             payload.blocks = await Promise.all(payload.blocks.map(async function(b) {
-              if (b.type === 'video' && b.data) {
+              if (b.data) {
                 var bdu = '';
                 if (b.data.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
                   try { bdu = await MediaDB.getDataUrl(b.data.mediaId); } catch(e) {}
                 } else if (b.data.dataUrl) { bdu = b.data.dataUrl; }
                 if (bdu && bdu.startsWith('data:')) {
-                  console.log('[Supabase] Uploading video block...');
-                  var bvUrl = await uploadBlobToStorage(bdu, 'blk_vid');
-                  if (bvUrl) { b.data.url = bvUrl; b.data.dataUrl = ''; } else { b.data.dataUrl = bdu; }
-                } else if (b.data.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
-                  try { b.data.dataUrl = await MediaDB.getDataUrl(b.data.mediaId); } catch(e) {}
+                  var isVid = b.type === 'video';
+                  if (isVid) {
+                    console.log('[Supabase] Uploading video block...');
+                    var bvUrl = await uploadBlobToStorage(bdu, 'blk_vid');
+                    if (bvUrl) { b.data.url = bvUrl; b.data.dataUrl = ''; } else { b.data.dataUrl = bdu; }
+                  } else {
+                    console.log('[Supabase] Uploading image block...');
+                    var biUrl = await uploadImage(bdu, 'blk', 1600, 0.8);
+                    if (biUrl) { b.data.url = biUrl; b.data.dataUrl = ''; } else { b.data.dataUrl = bdu; }
+                  }
                 }
-              } else if (['image','gallery'].indexOf(b.type) >= 0 && b.data && b.data.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
-                try { b.data.dataUrl = await MediaDB.getDataUrl(b.data.mediaId); } catch(e) {}
+                if (b.type === 'gallery' && b.data && b.data.images && b.data.images.length) {
+                  b.data.images = await Promise.all(b.data.images.map(async function(gimg) {
+                    var gdu = gimg.dataUrl || '';
+                    if (!gdu && gimg.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
+                      try { gdu = await MediaDB.getDataUrl(gimg.mediaId); } catch(e) {}
+                    }
+                    if (gdu && gdu.startsWith('data:')) {
+                      console.log('[Supabase] Uploading gallery image...');
+                      var gUrl = await uploadImage(gdu, 'gal', 1600, 0.8);
+                      if (gUrl) { return { url: gUrl }; } else { return { dataUrl: gdu }; }
+                    }
+                    return gimg;
+                  }));
+                }
               }
               return b;
             }));
