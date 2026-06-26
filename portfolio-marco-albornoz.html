@@ -1530,8 +1530,8 @@
       <div class="field">
         <label>Espaçamento entre blocos</label>
         <div style="display:flex;align-items:center;gap:12px">
-          <input type="range" id="setSpacing" min="0" max="120" value="60" oninput="document.getElementById('setSpacingVal').textContent=this.value+'px'" style="flex:1" />
-          <span id="setSpacingVal" style="font-size:13px;font-weight:500;min-width:40px;text-align:right">60px</span>
+           <input type="range" id="setSpacing" min="0" max="30" value="16" oninput="document.getElementById('setSpacingVal').textContent=this.value+'px'" style="flex:1" />
+          <span id="setSpacingVal" style="font-size:13px;font-weight:500;min-width:40px;text-align:right">16px</span>
         </div>
       </div>
       <div class="field">
@@ -3648,7 +3648,7 @@ function resolveMediaUrl(item) {
           <h3>Estilo</h3>
           <div class="style-slider-row">
             <label style="font-size:11px;color:var(--muted);flex-shrink:0">Espaçamento</label>
-            <input type="range" id="blockGapSlider" min="0" max="160" value="${editingBlocksGap}" oninput="updateBlockGap(this.value)" />
+             <input type="range" id="blockGapSlider" min="0" max="30" value="${editingBlocksGap}" oninput="updateBlockGap(this.value)" />
             <span class="style-slider-value" id="blockGapValue">${editingBlocksGap}px</span>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:9px;color:#ccc;margin-top:2px">
@@ -3826,7 +3826,7 @@ function resolveMediaUrl(item) {
       settingsTemp.longDesc = document.getElementById('setLongDesc').value;
       settingsTemp.role = document.getElementById('setRole').value;
       settingsTemp.tools = document.getElementById('setTools').value;
-      settingsTemp.blockSpacing = parseInt(document.getElementById('setSpacing').value) || 60;
+      settingsTemp.blockSpacing = parseInt(document.getElementById('setSpacing').value) || 0;
       editingCover = settingsTemp.cover;
       closeSettings();
       showToast('Configurações salvas')
