@@ -1568,8 +1568,8 @@
     const SB_HEADERS = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
     function sbFetch(path, opts) { return fetch(SB_URL + path, Object.assign({ headers: SB_HEADERS }, opts)); }
     function sbGet(path) { return sbFetch(path, { method: 'GET' }).then(function(r) { if (!r.ok) throw new Error('GET ' + path + ' ' + r.status); return r.json(); }); }
-    function sbPost(path, body) { return sbFetch(path, { method: 'POST', body: JSON.stringify(body) }).then(function(r) { if (!r.ok) throw new Error('POST ' + path + ' ' + r.status); }); }
-    function sbDelete(path) { return sbFetch(path, { method: 'DELETE' }).then(function(r) { if (!r.ok) throw new Error('DELETE ' + path + ' ' + r.status); }); }
+    function sbPost(path, body) { return sbFetch(path, { method: 'POST', body: JSON.stringify(body) }).then(function(r) { if (!r.ok) return r.text().then(function(t) { throw new Error('POST ' + path + ' ' + r.status + ': ' + t); }); }); }
+    function sbDelete(path) { return sbFetch(path, { method: 'DELETE' }).then(function(r) { if (!r.ok) return r.text().then(function(t) { throw new Error('DELETE ' + path + ' ' + r.status + ': ' + t); }); }); }
 
     /* ── Storage helpers — upload images to Supabase Storage ──
      * Features: auto-compression before upload, retry on failure,
@@ -1794,7 +1794,7 @@
           });
         }));
         rows = resolvedCovers.sort(function(a,b){return a.index-b.index}).map(function(r) {
-          return { title: r.title, category: r.category, description: r.description, image: r.url, link: '', sort_order: r.index };
+          return { title: r.title, category: r.category, description: r.description, image: r.url, sort_order: r.index };
         });
         if (rows.length === 0) { console.log('[Supabase] No rows to save'); return; }
         console.log('[Supabase] POSTING', rows.length, 'rows...');
