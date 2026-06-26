@@ -1755,6 +1755,11 @@
 
     async function syncProjectsFromSB() {
       try {
+        var localData = localStorage.getItem('od_portfolio_projects');
+        if (localData && localData !== '[]') {
+          console.log('[Supabase] syncProjects — local data exists, skipping overwrite');
+          return;
+        }
         console.log('[Supabase] syncProjectsFromSB() — fetching from server...');
         const data = await sbGet('/rest/v1/portfolio_projects?select=*&order=sort_order.asc');
         if (data && data.length > 0) {
@@ -1774,6 +1779,11 @@
 
     async function syncConfigFromSB() {
       try {
+        var localData = localStorage.getItem('od_portfolio_config');
+        if (localData && localData !== '{}') {
+          console.log('[Supabase] syncConfig — local data exists, skipping overwrite');
+          return;
+        }
         const data = await sbGet('/rest/v1/portfolio_config?select=key,value');
         if (data && data.length > 0) {
           const cfg = {};
@@ -1790,6 +1800,11 @@
 
     async function syncMessagesFromSB() {
       try {
+        var localData = localStorage.getItem('od_portfolio_messages');
+        if (localData && localData !== '[]') {
+          console.log('[Supabase] syncMessages — local data exists, skipping overwrite');
+          return;
+        }
         const data = await sbGet('/rest/v1/portfolio_messages?select=*&order=created_at.desc');
         if (data && data.length > 0) {
           localStorage.setItem('od_portfolio_messages', JSON.stringify(data));
@@ -1877,18 +1892,27 @@
                   }
                 }
                 if (b.type === 'gallery' && b.data && b.data.images && b.data.images.length) {
-                  b.data.images = await Promise.all(b.data.images.map(async function(gimg) {
+                  var processedImages = [];
+                  for (var gi = 0; gi < b.data.images.length; gi++) {
+                    var gimg = b.data.images[gi];
                     var gdu = gimg.dataUrl || '';
                     if (!gdu && gimg.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
                       try { gdu = await MediaDB.getDataUrl(gimg.mediaId); } catch(e) {}
                     }
                     if (gdu && gdu.startsWith('data:')) {
-                      console.log('[Supabase] Uploading gallery image...');
-                      var gUrl = await uploadImage(gdu, 'gal', 1600, 0.8);
-                      if (gUrl) { return { url: gUrl }; } else { return { dataUrl: gdu }; }
+                      console.log('[Supabase] Uploading gallery image', gi, '...');
+                      var gUrl = await uploadImage(gdu, 'gal', 1200, 0.7);
+                      if (gUrl) {
+                        processedImages.push({ url: gUrl });
+                      } else {
+                        console.warn('[Supabase] Gallery image', gi, 'upload failed — keeping reference locally');
+                        processedImages.push({ url: '' });
+                      }
+                    } else {
+                      processedImages.push(gimg);
                     }
-                    return gimg;
-                  }));
+                  }
+                  b.data.images = processedImages;
                 }
               }
               return b;
