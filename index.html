@@ -2504,7 +2504,7 @@ function du2b(d){const m=d.match(/^data:(.*?)(;base64)?,(.*)$/);if(!m)return nul
       const p = projects[projIdx];
       const body = document.getElementById('overlayBody');
 
-      const blockGap = p.blockSpacing || 60;
+      const blockGap = p.blockSpacing ?? 60;
       let stackHtml = '';
       if (p.blocks && p.blocks.length > 0) {
         stackHtml = `<div class="overlay-stack" style="gap:${blockGap}px">`;
@@ -3412,7 +3412,7 @@ function du2b(d){const m=d.match(/^data:(.*?)(;base64)?,(.*)$/);if(!m)return nul
         if (!p) return;
         editingBlocks = (p.blocks && p.blocks.length > 0 ? p.blocks : p.media && p.media.length > 0 ? p.media.map(m => ({ id: 'bl_' + genId(), type: 'image', data: { mediaId: m.mediaId, dataUrl: m.dataUrl, caption: '' } })) : []).map(b => JSON.parse(JSON.stringify(b)));
         editingCover = p.cover || '';
-        editingBlocksGap = p.blockSpacing || 60;
+        editingBlocksGap = p.blockSpacing ?? 60;
         document.getElementById('editorBarTitle').textContent = 'Editar Projeto';
       } else {
         editingBlocks = []; editingCover = ''; editingBlocksGap = 60;
@@ -3661,7 +3661,7 @@ function du2b(d){const m=d.match(/^data:(.*?)(;base64)?,(.*)$/);if(!m)return nul
     }
 
     function updateBlockGap(val) {
-      editingBlocksGap = parseInt(val) || 60;
+      editingBlocksGap = parseInt(val) || 0;
       document.getElementById('blockGapValue').textContent = editingBlocksGap + 'px';
       document.getElementById('edBlocks').style.setProperty('--block-gap', editingBlocksGap + 'px');
       if (typeof settingsTemp !== 'undefined' && settingsTemp) settingsTemp.blockSpacing = editingBlocksGap
@@ -3792,7 +3792,7 @@ function du2b(d){const m=d.match(/^data:(.*?)(;base64)?,(.*)$/);if(!m)return nul
     /* ── Settings popover ── */
     function openSettings() {
       const p = editingId !== null ? projects.find(pr => pr.id === editingId) : null;
-      settingsTemp = { desc: p && p.desc || '', longDesc: p && p.longDesc || '', role: p && p.role || '', tools: p && p.tools || '', cover: editingCover, blockSpacing: p && p.blockSpacing || 60 };
+      settingsTemp = { desc: p && p.desc || '', longDesc: p && p.longDesc || '', role: p && p.role || '', tools: p && p.tools || '', cover: editingCover, blockSpacing: (p && p.blockSpacing) ?? 60 };
       document.getElementById('setDesc').value = settingsTemp.desc;
       document.getElementById('setLongDesc').value = settingsTemp.longDesc;
       document.getElementById('setRole').value = settingsTemp.role;

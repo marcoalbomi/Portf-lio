@@ -811,7 +811,7 @@ function openEditor(id){
     if(!p)return;
     editingBlocks=(p.blocks&&p.blocks.length>0?p.blocks:p.media&&p.media.length>0?p.media.map(m=>({id:'bl_'+gid(),type:'image',data:{mediaId:m.mediaId,dataUrl:m.dataUrl,caption:''}})):[]).map(b=>JSON.parse(JSON.stringify(b)));
     editingCover=p.cover||'';
-    editingBlocksGap=p.blockSpacing||60;
+    editingBlocksGap=p.blockSpacing??60;
     document.getElementById('editorBarTitle').textContent='Editar Projeto';
   }else{
     editingBlocks=[];editingCover='';editingBlocksGap=60;
@@ -1110,7 +1110,7 @@ function renderFontList(){
 
 /* ── Block gap ── */
 function updateBlockGap(val){
-  editingBlocksGap=parseInt(val)||60;
+  editingBlocksGap=parseInt(val)||0;
   const gv=document.getElementById('blockGapValue');if(gv)gv.textContent=editingBlocksGap+'px';
   const eb=document.getElementById('edBlocks');if(eb)eb.style.setProperty('--block-gap',editingBlocksGap+'px');
   if(typeof settingsTemp!=='undefined'&&settingsTemp)settingsTemp.blockSpacing=editingBlocksGap
@@ -1262,7 +1262,7 @@ function saveFromEditor(draft){
   
   const projectData={
     title,tag,desc:meta.desc,longDesc:meta.longDesc,
-    role:meta.role,ano,tools:meta.tools,blockSpacing:settingsTemp.blockSpacing||60,
+    role:meta.role,ano,tools:meta.tools,blockSpacing:settingsTemp.blockSpacing??60,
     cover:editingCover,
     blocks:editingBlocks.map(b=>JSON.parse(JSON.stringify(b))),
     media:[]
