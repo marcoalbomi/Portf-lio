@@ -2226,7 +2226,7 @@ function resolveMediaUrl(item) {
     }
 
     async function saveProjects() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projects)); } catch(e) { console.warn('[Local] localStorage quota exceeded, saving to server only:', e.message); }
       if (typeof saveProjectsToSB !== 'function') { console.warn('[Supabase] saveProjectsToSB not available'); return; }
       showToast('Salvando no servidor...');
       try {
@@ -3869,7 +3869,7 @@ function resolveMediaUrl(item) {
     }
 
     /* ── Save from editor ── */
-    function saveFromEditor() {
+    async function saveFromEditor() {
       try {
         const title = document.getElementById('edTitle') && document.getElementById('edTitle').value.trim() || '';
         if (!title) { showToast('O título é obrigatório'); return }
@@ -3894,7 +3894,7 @@ function resolveMediaUrl(item) {
           const newId = projects.length > 0 ? Math.max(...projects.map(p => p.id)) + 1 : 0;
           projects.push({ id: newId, ...projectData });
         }
-        saveProjects();
+        await saveProjects();
         closeEditor();
         renderAdmin();
         showToast('Projeto salvo!');
