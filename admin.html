@@ -880,7 +880,7 @@ function esc(e){return e.replace(/[&<>"']/g,$0=>({'&':'&amp;','<':'&lt;','>':'&g
 function renderImgBlock(b,i){
   const url=rmu(b.data)||b.data.dataUrl||'';
   if(url)return `<div class="block-preview-img-wrap"><img src="${esc(url)}" class="block-preview-img" alt="" /><button class="img-del-btn" onclick="delBlockImg(${i})">✕</button></div>`;
-  return `<div class="block-upload-zone" onclick="document.getElementById('blkFile${i}').click()"><div class="uz-icon">⬡</div><div>Clique para escolher uma ou mais imagens</div><input type="file" id="blkFile${i}" accept="image/*" multiple onchange="uploadBlockImg(${i},event)" /></div>`
+  return `<label class="block-upload-zone" for="blkFile${i}"><div class="uz-icon">⬡</div><div>Clique para escolher uma ou mais imagens</div><input type="file" id="blkFile${i}" accept="image/*" multiple onchange="uploadBlockImg(${i},event)" style="display:none" /></label>`
 }
 function renderTextBlock(b,i){
   const currentFont=b.data.fontFamily||'';
@@ -959,20 +959,34 @@ function moveBlock(i,dir){
 }
 function delBlock(i){editingBlocks.splice(i,1);renderEditorCanvas()}
 function delBlockImg(i){editingBlocks[i].data={mediaId:'',dataUrl:'',caption:''};renderEditorCanvas()}
-async function uploadBlockImg(i,ev){
-  const files=Array.from(ev.target.files);if(!files.length)return;
-  const results=[];
-  for(const f of files){
-    if(!f)continue;
-    const du=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f)});
-    try{const mid=gid();const blob=du2b(du);if(blob)await MediaDB.store(mid,blob);results.push({mediaId:mid,dataUrl:du,caption:''})}catch{results.push({mediaId:'',dataUrl:du,caption:''})}
+window.uploadBlockImg=async function(i,ev){
+  const input=ev&&ev.target||document.getElementById('blkFile'+i);
+  const files=input&&input.files?Array.from(input.files):[];
+  if(!files.length)return;
+  showToast('Carregando '+(files.length>1?files.length+' imagens...':'1 imagem...'));
+  const results=await Promise.all(files.map(async f=>{
+    if(!f)return null;
+    try{
+      const du=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f)});
+      const mid=gid();const blob=du2b(du);
+      if(blob)await MediaDB.store(mid,blob);
+      return{mediaId:mid,dataUrl:du,caption:''}
+    }catch{
+      try{
+        const du=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f)});
+        return{mediaId:'',dataUrl:du,caption:''}
+      }catch{return null}
+    }
+  }));
+  const all=results.filter(Boolean);
+  if(!all.length){showToast('Nenhuma imagem pôde ser carregada');return}
+  editingBlocks[i].data=all[0];
+  for(let k=1;k<all.length;k++){
+    editingBlocks.splice(i+k,0,{id:'bl_'+gid(),type:'image',data:all[k]})
   }
-  if(!results.length)return;
-  editingBlocks[i].data=results[0];
-  for(let k=1;k<results.length;k++){
-    editingBlocks.splice(i+k,0,{id:'bl_'+gid(),type:'image',data:results[k]})
-  }
-  renderEditorCanvas()
+  if(input)input.value='';
+  renderEditorCanvas();
+  showToast(all.length+' imagem(ns) adicionada(s)')
 }
 async function uploadBlockVid(i,ev){
   const f=ev.target.files[0];if(!f)return;
