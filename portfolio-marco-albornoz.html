@@ -2220,9 +2220,15 @@ function resolveMediaUrl(item) {
     }
 
     async function saveProjects() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+      showToast('Salvando...');
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+      } catch(e) {
+        showToast('Erro ao salvar local: ' + e.message);
+        console.error('[Supabase] localStorage error:', e);
+        return;
+      }
       if (typeof saveProjectsToSB !== 'function') { console.warn('[Supabase] saveProjectsToSB not available'); return; }
-      showToast('Salvando no servidor...');
       try {
         await saveProjectsToSB();
         localStorage.setItem('od_sb_projects_ok', '1');
@@ -3848,7 +3854,7 @@ function resolveMediaUrl(item) {
     }
 
     /* ── Save from editor ── */
-    function saveFromEditor() {
+    async function saveFromEditor() {
       try {
         const title = document.getElementById('edTitle') && document.getElementById('edTitle').value.trim() || '';
         if (!title) { showToast('O título é obrigatório'); return }
@@ -3861,17 +3867,24 @@ function resolveMediaUrl(item) {
           role: meta.role, ano, tools: meta.tools,
           cover: editingCover || '',
           blockSpacing: meta.blockSpacing,
-          blocks: blocks,
-          media: []
+          blocks: blocks
         };
         if (editingId !== null) {
           const idx = projects.findIndex(p => p.id === editingId);
-          if (idx !== -1) projects[idx] = { ...projects[idx], ...projectData };
+          if (idx !== -1) {
+            var existingMedia = projects[idx].media || [];
+            projects[idx] = { ...projects[idx], ...projectData };
+            if (blocks.length === 0 && existingMedia.length > 0) {
+              projects[idx].media = existingMedia;
+            } else {
+              projects[idx].media = [];
+            }
+          }
         } else {
           const newId = projects.length > 0 ? Math.max(...projects.map(p => p.id)) + 1 : 0;
-          projects.push({ id: newId, ...projectData });
+          projects.push({ id: newId, ...projectData, media: [] });
         }
-        saveProjects();
+        await saveProjects();
         closeEditor();
         renderAdmin();
         showToast('Projeto salvo!');
