@@ -880,7 +880,7 @@ function esc(e){return e.replace(/[&<>"']/g,$0=>({'&':'&amp;','<':'&lt;','>':'&g
 function renderImgBlock(b,i){
   const url=rmu(b.data)||b.data.dataUrl||'';
   if(url)return `<div class="block-preview-img-wrap"><img src="${esc(url)}" class="block-preview-img" alt="" /><button class="img-del-btn" onclick="delBlockImg(${i})">✕</button></div>`;
-  return `<div class="block-upload-zone" onclick="document.getElementById('blkFile${i}').click()"><div class="uz-icon">⬡</div><div>Clique para escolher uma imagem</div><input type="file" id="blkFile${i}" accept="image/*" onchange="uploadBlockImg(${i},event)" /></div>`
+  return `<div class="block-upload-zone" onclick="document.getElementById('blkFile${i}').click()"><div class="uz-icon">⬡</div><div>Clique para escolher uma ou mais imagens</div><input type="file" id="blkFile${i}" accept="image/*" multiple onchange="uploadBlockImg(${i},event)" /></div>`
 }
 function renderTextBlock(b,i){
   const currentFont=b.data.fontFamily||'';
@@ -960,14 +960,19 @@ function moveBlock(i,dir){
 function delBlock(i){editingBlocks.splice(i,1);renderEditorCanvas()}
 function delBlockImg(i){editingBlocks[i].data={mediaId:'',dataUrl:'',caption:''};renderEditorCanvas()}
 async function uploadBlockImg(i,ev){
-  const f=ev.target.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=async e=>{
-    const du=e.target.result;
-    try{const mid=gid();const blob=du2b(du);if(blob)await MediaDB.store(mid,blob);editingBlocks[i].data={mediaId:mid,dataUrl:du,caption:''}}catch{editingBlocks[i].data={mediaId:'',dataUrl:du,caption:''}}
-    renderEditorCanvas()
-  };
-  r.readAsDataURL(f)
+  const files=Array.from(ev.target.files);if(!files.length)return;
+  const results=[];
+  for(const f of files){
+    if(!f)continue;
+    const du=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f)});
+    try{const mid=gid();const blob=du2b(du);if(blob)await MediaDB.store(mid,blob);results.push({mediaId:mid,dataUrl:du,caption:''})}catch{results.push({mediaId:'',dataUrl:du,caption:''})}
+  }
+  if(!results.length)return;
+  editingBlocks[i].data=results[0];
+  for(let k=1;k<results.length;k++){
+    editingBlocks.splice(i+k,0,{id:'bl_'+gid(),type:'image',data:results[k]})
+  }
+  renderEditorCanvas()
 }
 async function uploadBlockVid(i,ev){
   const f=ev.target.files[0];if(!f)return;
