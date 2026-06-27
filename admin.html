@@ -936,9 +936,35 @@ function renderSimpleBlock(b,i,ph){
 
 /* ── Block actions ── */
 function addBlock(type){
+  if(type==='image'){
+    const inp=document.createElement('input');
+    inp.type='file';inp.accept='image/*';inp.multiple=true;
+    inp.style.display='none';
+    inp.onchange=async function(ev){
+      const files=Array.from(ev.target.files);
+      if(!files.length)return;
+      showToast('Carregando '+files.length+' imagem(ns)...');
+      const results=await Promise.all(files.map(async f=>{
+        try{
+          const du=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f)});
+          let mid='';try{mid=gid();const blob=du2b(du);if(blob)await MediaDB.store(mid,blob)}catch{}
+          return{id:'bl_'+gid(),type:'image',data:{mediaId:mid,dataUrl:du,caption:''}}
+        }catch{return null}
+      }));
+      const valid=results.filter(Boolean);
+      if(!valid.length){showToast('Nenhuma imagem pôde ser carregada');return}
+      valid.forEach(b=>editingBlocks.push(b));
+      renderEditorCanvas();
+      renderEditorSidebar();
+      showToast(valid.length+' imagem(ns) adicionada(s)')
+    };
+    document.body.appendChild(inp);
+    inp.click();
+    setTimeout(()=>inp.remove(),1000);
+    return
+  }
   let data={};
   switch(type){
-    case 'image':data={mediaId:'',dataUrl:'',caption:''};break;
     case 'text':data={content:'',fontFamily:''};break;
     case 'gallery':data={images:[]};break;
     case 'video':data={mediaId:'',dataUrl:'',caption:''};break;
