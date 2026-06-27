@@ -231,9 +231,12 @@
       pointer-events: none;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
+      scrollbar-width: thin;
     }
-    .overlay::-webkit-scrollbar { display: none; }
+    .overlay::-webkit-scrollbar { width: 6px; }
+    .overlay::-webkit-scrollbar-track { background: transparent; }
+    .overlay::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    .overlay::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); }
     .overlay.open { opacity: 1; pointer-events: auto; }
     /* ── Floating sidebar bar (desktop only, always visible) ── */
     .float-sidebar { display: none; }
