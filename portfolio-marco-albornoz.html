@@ -2225,7 +2225,35 @@ function resolveMediaUrl(item) {
       }
     }
 
+    async function stripDataUrlsForStorage(projectsArr) {
+      for (const p of projectsArr) {
+        if (p.media && p.media.length) {
+          for (const m of p.media) {
+            if (m.dataUrl && m.mediaId) m.dataUrl = '';
+            if (m.dataUrl && !m.mediaId) { try { const mid = genId(); const r = await fetch(m.dataUrl); const b = await r.blob(); await MediaDB.store(mid, b); m.mediaId = mid; m.dataUrl = ''; } catch(e) {} }
+          }
+        }
+        if (p.blocks && p.blocks.length) {
+          for (const b of p.blocks) {
+            if (b.data) {
+              if (b.data.dataUrl && b.data.mediaId) b.data.dataUrl = '';
+              if (b.data.dataUrl && !b.data.mediaId) { try { const mid = genId(); const r = await fetch(b.data.dataUrl); const blob = await r.blob(); await MediaDB.store(mid, blob); b.data.mediaId = mid; b.data.dataUrl = ''; } catch(e) {} }
+              if (b.data.images && b.data.images.length) {
+                for (const gi of b.data.images) {
+                  if (gi.dataUrl && gi.mediaId) gi.dataUrl = '';
+                  if (gi.dataUrl && !gi.mediaId) { try { const mid = genId(); const r = await fetch(gi.dataUrl); const blob = await r.blob(); await MediaDB.store(mid, blob); gi.mediaId = mid; gi.dataUrl = ''; } catch(e) {} }
+                }
+              }
+            }
+          }
+        }
+        if (p.cover && p.cover.startsWith('data:') && p.cover.length > 500) {
+          try { const cid = 'cv_' + genId(); const r = await fetch(p.cover); const b = await r.blob(); await MediaDB.store(cid, b); p.cover = cid; } catch(e) {}
+        }
+      }
+    }
     async function saveProjects() {
+      await stripDataUrlsForStorage(projects);
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projects)); } catch(e) { console.warn('[Local] localStorage quota exceeded, saving to server only:', e.message); }
       if (typeof saveProjectsToSB !== 'function') { console.warn('[Supabase] saveProjectsToSB not available'); return; }
       showToast('Salvando no servidor...');
