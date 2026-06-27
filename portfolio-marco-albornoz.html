@@ -1797,12 +1797,7 @@
       if (!cover) return '';
       if (cover.startsWith('http') && cover.indexOf('supabase.co') > 0) return cover;
       if (cover.startsWith(SB_URL)) return cover;
-      var dataUrl = null;
-      if (cover.startsWith('data:')) {
-        dataUrl = cover;
-      } else if (typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
-        try { dataUrl = await MediaDB.getDataUrl(cover); } catch(e) {}
-      }
+      var dataUrl = (cover && cover.startsWith('data:')) ? cover : '';
       if (!dataUrl) return '';
       /* Three-pass compression cascade */
       var result = await uploadImage(dataUrl, prefix, 1920, 0.85);
@@ -1916,25 +1911,20 @@
           if (payload.media && payload.media.length) {
             payload.media = await Promise.all(payload.media.map(async function(m) {
               var item = { name: m.name, type: m.type };
-              var isVideo = m.type && m.type.startsWith('video/');
-              var du = '';
-              if (m.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
-                try { du = await MediaDB.getDataUrl(m.mediaId); } catch(e) {}
-              } else if (m.dataUrl) { du = m.dataUrl; }
-              if (du && du.startsWith('data:')) {
+              var src = m.url || m.dataUrl || '';
+              if (src && src.startsWith('data:')) {
+                var isVideo = m.type && m.type.startsWith('video/');
                 if (isVideo) {
                   console.log('[Supabase] Uploading video media:', m.name);
-                  var vBlob = null;
-                  if (m.mediaId && MediaDB.getBlob) { try { vBlob = MediaDB.getBlob(m.mediaId); } catch(e) {} }
-                  var vUrl = vBlob ? await uploadBlobToStorage(vBlob, 'vid') : await uploadBlobToStorage(du, 'vid');
-                  if (vUrl) { item.url = vUrl; } else { item.dataUrl = du; }
+                  var vUrl = await uploadBlobToStorage(src, 'vid');
+                  if (vUrl) { item.url = vUrl; } else { item.dataUrl = src; }
                 } else {
                   console.log('[Supabase] Uploading image media:', m.name);
-                  var imgUrl = await uploadImage(du, 'med', 1600, 0.8);
-                  if (imgUrl) { item.url = imgUrl; } else { item.dataUrl = du; }
+                  var imgUrl = await uploadImage(src, 'med', 1600, 0.8);
+                  if (imgUrl) { item.url = imgUrl; } else { item.dataUrl = src; }
                 }
-              } else if (du) {
-                item.dataUrl = du;
+              } else if (src) {
+                if (src.startsWith('http')) { item.url = src; } else { item.dataUrl = src; }
               }
               return item;
             }));
@@ -1942,35 +1932,27 @@
           if (payload.blocks && payload.blocks.length) {
             payload.blocks = await Promise.all(payload.blocks.map(async function(b) {
               if (b.data) {
-                var bdu = '';
-                if (b.data.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
-                  try { bdu = await MediaDB.getDataUrl(b.data.mediaId); } catch(e) {}
-                } else if (b.data.dataUrl) { bdu = b.data.dataUrl; }
-                if (bdu && bdu.startsWith('data:')) {
+                var src = b.data.url || b.data.dataUrl || '';
+                if (src && src.startsWith('data:')) {
                   var isVid = b.type === 'video';
                   if (isVid) {
                     console.log('[Supabase] Uploading video block...');
-                    var bvBlob = null;
-                    if (b.data.mediaId && MediaDB.getBlob) { try { bvBlob = MediaDB.getBlob(b.data.mediaId); } catch(e) {} }
-                    var bvUrl = bvBlob ? await uploadBlobToStorage(bvBlob, 'blk_vid') : await uploadBlobToStorage(bdu, 'blk_vid');
-                    if (bvUrl) { b.data.url = bvUrl; b.data.dataUrl = ''; } else { b.data.dataUrl = bdu; }
-                } else {
-                  console.log('[Supabase] Uploading image block...');
-                  var biUrl = await uploadImage(bdu, 'blk', 1200, 0.7);
-                  if (biUrl) { b.data.url = biUrl; b.data.dataUrl = ''; } else { b.data.dataUrl = bdu; }
-                }
+                    var bvUrl = await uploadBlobToStorage(src, 'blk_vid');
+                    if (bvUrl) { b.data.url = bvUrl; b.data.dataUrl = ''; } else { b.data.dataUrl = src; }
+                  } else {
+                    console.log('[Supabase] Uploading image block...');
+                    var biUrl = await uploadImage(src, 'blk', 1600, 0.8);
+                    if (biUrl) { b.data.url = biUrl; b.data.dataUrl = ''; } else { b.data.dataUrl = src; }
+                  }
                 }
                 if (b.type === 'gallery' && b.data && b.data.images && b.data.images.length) {
                   var processedImages = [];
                   for (var gi = 0; gi < b.data.images.length; gi++) {
                     var gimg = b.data.images[gi];
-                    var gdu = gimg.dataUrl || '';
-                    if (!gdu && gimg.mediaId && typeof MediaDB !== 'undefined' && MediaDB.getDataUrl) {
-                      try { gdu = await MediaDB.getDataUrl(gimg.mediaId); } catch(e) {}
-                    }
-                    if (gdu && gdu.startsWith('data:')) {
+                    var gsrc = gimg.url || gimg.dataUrl || '';
+                    if (gsrc && gsrc.startsWith('data:')) {
                       console.log('[Supabase] Uploading gallery image', gi, '...');
-                      var gUrl = await uploadImage(gdu, 'gal', 1200, 0.7);
+                      var gUrl = await uploadImage(gsrc, 'gal', 1200, 0.7);
                       if (gUrl) {
                         processedImages.push({ url: gUrl });
                       } else {
@@ -2150,69 +2132,27 @@
       }
     ];
 
-    /* ── MediaDB — IndexedDB storage for project media files ── */
-    const MediaDB = {
-      _db: null, _cache: new Map(), _urlCache: new Map(),
-      async init() {
-        try {
-          this._db = await new Promise((res, rej) => {
-            const r = indexedDB.open('PortfolioImagesDB', 1);
-            r.onupgradeneeded = (e) => { if (!e.target.result.objectStoreNames.contains('media')) e.target.result.createObjectStore('media', { keyPath: 'id' }); };
-            r.onsuccess = () => res(r.result);
-            r.onerror = () => rej(r.error);
-          });
-          const tx = this._db.transaction('media', 'readonly');
-          const all = await new Promise((res, rej) => { const r = tx.objectStore('media').getAll(); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
-          for (const rec of all) this._cache.set(rec.id, rec.blob);
-          if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
-        } catch (e) { console.warn('MediaDB init failed:', e); }
-      },
-      async store(id, blob) {
-        return new Promise((res, rej) => {
-          const tx = this._db.transaction('media', 'readwrite');
-          tx.objectStore('media').put({ id, blob, ts: Date.now() });
-          tx.oncomplete = () => { this._cache.set(id, blob); if (this._urlCache.has(id)) { URL.revokeObjectURL(this._urlCache.get(id)); this._urlCache.delete(id); } res(); };
-          tx.onerror = () => rej(tx.error);
-        });
-      },
-      getObjectUrl(id) {
-        if (this._urlCache.has(id)) return this._urlCache.get(id);
-        const blob = this._cache.get(id); if (!blob) return null;
-        const url = URL.createObjectURL(blob); this._urlCache.set(id, url); return url;
-      },
-      getBlob(id) { return this._cache.get(id) || null; },
-      async getDataUrl(id) {
-        const blob = this._cache.get(id); if (!blob) return null;
-        return new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
-      },
-      async remove(id) {
-        this._cache.delete(id);
-        if (this._urlCache.has(id)) { URL.revokeObjectURL(this._urlCache.get(id)); this._urlCache.delete(id); }
-        return new Promise((res, rej) => { const tx = this._db.transaction('media', 'readwrite'); tx.objectStore('media').delete(id); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
-      },
-      async clear() {
-        for (const u of this._urlCache.values()) URL.revokeObjectURL(u);
-        this._cache.clear(); this._urlCache.clear();
-        return new Promise((res, rej) => { const tx = this._db.transaction('media', 'readwrite'); tx.objectStore('media').clear(); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
-      }
-    };
+    const MediaDB={init:async()=>{},store:async()=>{},getObjectUrl:()=>null,getBlob:()=>null,getDataUrl:async()=>null,remove:async()=>{},clear:async()=>{},count:()=>0};
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 9); }
 function du2b(d){const m=d.match(/^data:(.*?)(;base64)?,(.*)$/);if(!m)return null;const bb=m[2];const str=bb?atob(m[3]):decodeURIComponent(m[3]);const buf=new Uint8Array(str.length);for(let i=0;i<str.length;i++)buf[i]=str.charCodeAt(i);return new Blob([buf],{type:m[1]})}
+    async function uploadFile(blob, prefix) {
+      if (!blob) return '';
+      var isImg = blob.type && blob.type.startsWith('image/');
+      if (isImg) {
+        var du = await new Promise(r => { var fr = new FileReader(); fr.onload = e => r(e.target.result); fr.readAsDataURL(blob) });
+        return await uploadImage(du, prefix || 'img', 1920, 0.85);
+      }
+      return await uploadBlobToStorage(blob, prefix || 'blob');
+    }
 function resolveMediaUrl(item) {
       if (!item) return null;
-      if (item.mediaId) {
-        const url = MediaDB.getObjectUrl(item.mediaId);
-        if (url) return url;
-      }
-      return item.dataUrl || item.url || null;
+      return item.url || item.dataUrl || null;
     }
     function resolveCoverLocal(p) {
       if (!p) return null;
       if (!p.cover) return null;
       if (p.cover.startsWith('http') || p.cover.startsWith('data:')) return p.cover;
       if (p.cover.startsWith(SB_URL)) return p.cover;
-      const url = MediaDB.getObjectUrl(p.cover);
-      if (url) return url;
       return null;
     }
 
@@ -2315,51 +2255,7 @@ function resolveMediaUrl(item) {
       }
     }
 
-    async function migrateProjectsData() {
-      let changed = false;
-      for (const p of projects) {
-        if (p.media) {
-          for (let i = 0; i < p.media.length; i++) {
-            const m = p.media[i];
-            /* migrate dataUrl → MediaDB (for server/localhost) */
-            if (m.dataUrl && !m.mediaId) {
-              const mid = genId();
-              try {
-                const resp = await fetch(m.dataUrl);
-                const blob = await resp.blob();
-                await MediaDB.store(mid, blob);
-                m.mediaId = mid; changed = true;
-              } catch(e) { console.warn('MediaDB store failed, keeping dataUrl'); }
-            }
-            /* migrate mediaId → dataUrl (for file:// fallback) */
-            if (m.mediaId && !m.dataUrl) {
-              try {
-                const d = await MediaDB.getDataUrl(m.mediaId);
-                if (d) { m.dataUrl = d; changed = true; }
-              } catch(e) { console.warn('MediaDB read failed for', m.mediaId); }
-            }
-          }
-        }
-        /* cover: migrate MediaDB reference → dataUrl fallback */
-        if (p.cover && !p.cover.startsWith('http') && !p.cover.startsWith('data:')) {
-          try {
-            const d = await MediaDB.getDataUrl(p.cover);
-            if (d && d.startsWith('data:')) { p.cover = d; changed = true; }
-          } catch(e) { /* keep as-is */ }
-        }
-        /* cover: migrate dataUrl → MediaDB */
-        if (p.cover && p.cover.startsWith('data:') && p.cover.length > 500) {
-          const cid = 'cv_' + genId();
-          try {
-            const resp = await fetch(p.cover);
-            const blob = await resp.blob();
-            await MediaDB.store(cid, blob);
-            p.cover = cid; changed = true;
-          } catch(e) { console.warn('Cover MediaDB store failed'); }
-        }
-      }
-      if (changed) saveProjects();
-    }
+
 
     function getPassword() {
       return localStorage.getItem(PASSWORD_KEY) || DEFAULT_PASSWORD;
@@ -3653,10 +3549,10 @@ function resolveMediaUrl(item) {
     function addBlock(type) {
       let data = {};
       switch (type) {
-        case 'image': data = { mediaId: '', dataUrl: '', caption: '' }; break;
+        case 'image': data = { url: '', caption: '' }; break;
         case 'text': data = { content: '', fontFamily: '' }; break;
         case 'gallery': data = { images: [] }; break;
-        case 'video': data = { mediaId: '', dataUrl: '', caption: '' }; break;
+        case 'video': data = { url: '', caption: '' }; break;
         case 'embed': data = { html: '', url: '' }; break;
         case 'prototype': data = { url: '' }; break;
         case '3d': data = { url: '' }; break
@@ -3675,26 +3571,18 @@ function resolveMediaUrl(item) {
       renderEditorCanvas()
     }
     function delBlock(i) { editingBlocks.splice(i, 1); renderEditorCanvas() }
-    function delBlockImg(i) { editingBlocks[i].data = { mediaId: '', dataUrl: '', caption: '' }; renderEditorCanvas() }
+    function delBlockImg(i) { editingBlocks[i].data = { url: '', caption: '' }; renderEditorCanvas() }
     async function uploadBlockImg(i, ev) {
       const f = ev.target.files[0]; if (!f) return;
-      const r = new FileReader();
-      r.onload = async e => {
-        const du = e.target.result;
-        try { const mid = genId(); const blob = du2b(du); if (blob) await MediaDB.store(mid, blob); editingBlocks[i].data = { mediaId: mid, dataUrl: du, caption: '' } } catch { editingBlocks[i].data = { mediaId: '', dataUrl: du, caption: '' } }
-        renderEditorCanvas()
-      };
-      r.readAsDataURL(f)
+      const url = await uploadFile(f, 'blk');
+      editingBlocks[i].data = {url, caption: ''};
+      renderEditorCanvas()
     }
     async function uploadBlockVid(i, ev) {
       const f = ev.target.files[0]; if (!f) return;
-      const r = new FileReader();
-      r.onload = async e => {
-        const du = e.target.result;
-        try { const mid = genId(); const blob = du2b(du); if (blob) await MediaDB.store(mid, blob); editingBlocks[i].data = { mediaId: mid, dataUrl: du, caption: '' } } catch { editingBlocks[i].data = { mediaId: '', dataUrl: du, caption: '' } }
-        renderEditorCanvas()
-      };
-      r.readAsDataURL(f)
+      const url = await uploadFile(f, 'vid');
+      editingBlocks[i].data = {url, caption: ''};
+      renderEditorCanvas()
     }
     function updateTextBlock(i, val) { editingBlocks[i].data.content = val }
     function updateTextFont(i, val) {
@@ -3708,8 +3596,8 @@ function resolveMediaUrl(item) {
       const files = Array.from(ev.target.files);
       for (const f of files) {
         if (!f) continue;
-        const du = await new Promise(r => { const fr = new FileReader(); fr.onload = e => r(e.target.result); fr.readAsDataURL(f) });
-        try { const mid = genId(); const blob = du2b(du); if (blob) await MediaDB.store(mid, blob); editingBlocks[i].data.images.push({ mediaId: mid, dataUrl: du }) } catch { editingBlocks[i].data.images.push({ mediaId: '', dataUrl: du }) }
+        const url = await uploadFile(f, 'gal');
+        editingBlocks[i].data.images.push({url});
       }
       renderEditorCanvas()
     }
@@ -3883,23 +3771,17 @@ function resolveMediaUrl(item) {
     /* ── Attach assets (sidebar) ── */
     function handleAttach(ev) {
       const files = Array.from(ev.target.files);
-      files.forEach(f => {
-        const reader = new FileReader();
-        reader.onload = async e => {
-          const du = e.target.result;
-          attachedFiles.push({ name: f.name, type: f.type, dataUrl: du });
-          renderAttached();
-          if (f.type && f.type.startsWith('image/')) {
-            let mid = ''; try { mid = genId(); const blob = du2b(du); if (blob) MediaDB.store(mid, blob) } catch { }
-            editingBlocks.push({ id: 'bl_' + genId(), type: 'image', data: { mediaId: mid, dataUrl: du, caption: '' } });
-            renderEditorCanvas()
-          } else if (f.type && f.type.startsWith('video/')) {
-            let mid = ''; try { mid = genId(); const blob = du2b(du); if (blob) MediaDB.store(mid, blob) } catch { }
-            editingBlocks.push({ id: 'bl_' + genId(), type: 'video', data: { mediaId: mid, dataUrl: du, caption: '' } });
-            renderEditorCanvas()
-          }
-        };
-        reader.readAsDataURL(f)
+      files.forEach(async f => {
+        const url = await uploadFile(f, 'img');
+        attachedFiles.push({ name: f.name, type: f.type, dataUrl: url });
+        renderAttached();
+        if (f.type && f.type.startsWith('video/')) {
+          editingBlocks.push({ id: 'bl_' + genId(), type: 'video', data: { url, caption: '' } });
+          renderEditorCanvas()
+        } else {
+          editingBlocks.push({ id: 'bl_' + genId(), type: 'image', data: { url, caption: '' } });
+          renderEditorCanvas()
+        }
       });
       ev.target.value = ''
     }
@@ -4027,9 +3909,7 @@ function resolveMediaUrl(item) {
     }
 
     async function reloadFromStorage() {
-      await MediaDB.init();
       loadProjects();
-      await migrateProjectsData();
       buildSlides();
     }
 
@@ -4045,14 +3925,10 @@ function resolveMediaUrl(item) {
     });
 
     document.addEventListener('DOMContentLoaded', function() {
-      MediaDB.init().catch(function(){});
-      /* Load local data immediately — don't block on Supabase */
       loadProjects();
       buildSlides();
       initDragScroll();
-      /* Sync from Supabase in background; will overwrite localStorage + rebuild */
       syncAllFromSB().then(function() {
-        migrateProjectsData().catch(function(){});
       }).catch(function(e) {
         console.warn('[Supabase] Background sync failed:', e);
       });
