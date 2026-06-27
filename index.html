@@ -1914,7 +1914,7 @@
         for (var k = 0; k < rows.length; k++) {
           if (rows[k].image && projects[k]) projects[k].cover = rows[k].image;
         }
-        localStorage.setItem('od_portfolio_projects', JSON.stringify(projects));
+        try { localStorage.setItem('od_portfolio_projects', JSON.stringify(projects)); } catch(e) { console.warn('[Save] localStorage final save skipped:', e.message); }
         localStorage.setItem('od_sb_projects_ok', '1');
         if (typeof showToast === 'function') showToast('Projetos salvos no servidor');
       } catch(e) {
@@ -2217,11 +2217,12 @@ function du2b(d){const m=d.match(/^data:(.*?)(;base64)?,(.*)$/);if(!m)return nul
     }
 
     async function saveProjects() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(projects)); } catch(e) { console.warn('[Save] localStorage backup skipped:', e.message); }
       if (typeof saveProjectsToSB !== 'function') { console.warn('[Supabase] saveProjectsToSB not available'); return; }
       showToast('Salvando no servidor...');
       try {
         await saveProjectsToSB();
+        try { localStorage.setItem('od_portfolio_projects', JSON.stringify(projects)); } catch(e) { console.warn('[Save] localStorage final save skipped:', e.message); }
         localStorage.setItem('od_sb_projects_ok', '1');
       } catch(e) {
         localStorage.removeItem('od_sb_projects_ok');
