@@ -642,6 +642,10 @@ input,textarea,select{font:inherit}
 <!-- Toast -->
 <div class="toast-container" id="toastContainer"></div>
 
+<!-- Reusable hidden file input for multi-image upload -->
+<input type="file" id="multiImageInput" accept="image/*" multiple style="display:none" />
+<input type="file" id="multiImageInputInline" accept="image/*" multiple style="display:none" />
+
 <script>
 const SK='od_portfolio_projects',PK='od_portfolio_password',CK='od_portfolio_config',DP='marcoalbomi1234';
 const SB_URL='https://ncupaiqjsqkuzjaeonkp.supabase.co';
@@ -880,7 +884,41 @@ function esc(e){return e.replace(/[&<>"']/g,$0=>({'&':'&amp;','<':'&lt;','>':'&g
 function renderImgBlock(b,i){
   const url=rmu(b.data)||b.data.dataUrl||'';
   if(url)return `<div class="block-preview-img-wrap"><img src="${esc(url)}" class="block-preview-img" alt="" /><button class="img-del-btn" onclick="delBlockImg(${i})">✕</button></div>`;
-  return `<label class="block-upload-zone" for="blkFile${i}"><div class="uz-icon">⬡</div><div>Clique para escolher uma ou mais imagens</div><input type="file" id="blkFile${i}" accept="image/*" multiple onchange="uploadBlockImg(${i},event)" style="display:none" /></label>`
+  return `<div class="block-upload-zone" onclick="pickImagesForBlock(${i})"><div class="uz-icon">⬡</div><div>Clique para escolher uma ou mais imagens</div></div>`
+}
+function pickImagesForBlock(i){
+  const inp=document.getElementById('multiImageInputInline');
+  _pendingBlockIdx=i;
+  inp.onchange=async function(ev){
+    const files=Array.from(ev.target.files);
+    inp.value='';inp.onchange=null;_pendingBlockIdx=null;
+    if(!files.length)return;
+    const idx=_pendingBlockIdx!==null?_pendingBlockIdx:i;
+    showToast('Carregando '+(files.length>1?files.length+' imagens...':'1 imagem...'));
+    const results=await Promise.all(files.map(async f=>{
+      if(!f)return null;
+      try{
+        const du=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f)});
+        const mid=gid();const blob=du2b(du);
+        if(blob)await MediaDB.store(mid,blob);
+        return{mediaId:mid,dataUrl:du,caption:''}
+      }catch{
+        try{
+          const du=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f)});
+          return{mediaId:'',dataUrl:du,caption:''}
+        }catch{return null}
+      }
+    }));
+    const all=results.filter(Boolean);
+    if(!all.length){showToast('Nenhuma imagem pôde ser carregada');return}
+    editingBlocks[idx].data=all[0];
+    for(let k=1;k<all.length;k++){
+      editingBlocks.splice(idx+k,0,{id:'bl_'+gid(),type:'image',data:all[k]})
+    }
+    renderEditorCanvas();
+    showToast(all.length+' imagem(ns) adicionada(s)')
+  };
+  inp.click()
 }
 function renderTextBlock(b,i){
   const currentFont=b.data.fontFamily||'';
@@ -911,7 +949,7 @@ function renderGalBlock(b,i){
     const u=rmu(img)||img.dataUrl||'';
     h+=`<div class="block-gallery-item"><img src="${esc(u)}" alt="" /><button class="gal-del" onclick="delGalImg(${i},${idx})">✕</button></div>`
   });
-  h+=`<div class="block-gallery-item" style="border:2px dashed #ddd;display:grid;place-items:center;cursor:pointer;color:#aaa;font-size:24px" onclick="document.getElementById('galFile${i}').click()">+<input type="file" id="galFile${i}" accept="image/*" multiple style="display:none" onchange="addGalImg(${i},event)" /></div>`;
+  h+=`<div class="block-gallery-item" style="border:2px dashed #ddd;display:grid;place-items:center;cursor:pointer;color:#aaa;font-size:24px" onclick="pickGalImg(${i})">+</div>`;
   h+='</div>';
   return h
 }
@@ -935,13 +973,14 @@ function renderSimpleBlock(b,i,ph){
 }
 
 /* ── Block actions ── */
+let _pendingBlockIdx=null;
 function addBlock(type){
   if(type==='image'){
-    const inp=document.createElement('input');
-    inp.type='file';inp.accept='image/*';inp.multiple=true;
-    inp.style.display='none';
+    const inp=document.getElementById('multiImageInput');
+    _pendingBlockIdx=null;
     inp.onchange=async function(ev){
       const files=Array.from(ev.target.files);
+      inp.value='';inp.onchange=null;
       if(!files.length)return;
       showToast('Carregando '+files.length+' imagem(ns)...');
       const results=await Promise.all(files.map(async f=>{
@@ -958,9 +997,7 @@ function addBlock(type){
       renderEditorSidebar();
       showToast(valid.length+' imagem(ns) adicionada(s)')
     };
-    document.body.appendChild(inp);
     inp.click();
-    setTimeout(()=>inp.remove(),1000);
     return
   }
   let data={};
@@ -1027,6 +1064,23 @@ async function uploadBlockVid(i,ev){
 function updateTextBlock(i,val){editingBlocks[i].data.content=val}
 function updateEmbBlock(i,k,val){editingBlocks[i].data[k]=val;renderEditorCanvas()}
 function updateSimpleBlock(i,val){editingBlocks[i].data={url:val}}
+function pickGalImg(i){
+  const inp=document.getElementById('multiImageInputInline');
+  _pendingBlockIdx=i;
+  inp.onchange=async function(ev){
+    const files=Array.from(ev.target.files);
+    inp.value='';inp.onchange=null;
+    const idx=_pendingBlockIdx!==null?_pendingBlockIdx:i;
+    _pendingBlockIdx=null;
+    for(const f of files){
+      if(!f)continue;
+      const du=await new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f)});
+      try{const mid=gid();const blob=du2b(du);if(blob)await MediaDB.store(mid,blob);editingBlocks[idx].data.images.push({mediaId:mid,dataUrl:du})}catch{editingBlocks[idx].data.images.push({mediaId:'',dataUrl:du})}
+    }
+    renderEditorCanvas()
+  };
+  inp.click()
+}
 async function addGalImg(i,ev){
   const files=Array.from(ev.target.files);
   for(const f of files){
