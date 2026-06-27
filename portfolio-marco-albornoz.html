@@ -1755,9 +1755,8 @@
 
     function hasLocalData(k) { try { var v = localStorage.getItem(k); return v && v !== '[]' && v !== '{}' } catch { return false } }
     async function syncProjectsFromSB() {
-      if (hasLocalData('od_portfolio_projects')) { console.log('[Supabase] syncProjects: local data exists, skipping'); return }
+      console.log('[Supabase] syncProjectsFromSB() — fetching from server...');
       try {
-        console.log('[Supabase] syncProjectsFromSB() — fetching from server...');
         const data = await sbGet('/rest/v1/portfolio_projects?select=*&order=sort_order.asc');
         if (data && data.length > 0) {
           const mapped = data.map(remapProjectFromDB);
@@ -1776,7 +1775,6 @@
     }
 
     async function syncConfigFromSB() {
-      if (hasLocalData('od_portfolio_config')) { console.log('[Supabase] syncConfig: local data exists, skipping'); return }
       try {
         const data = await sbGet('/rest/v1/portfolio_config?select=key,value');
         if (data && data.length > 0) {
@@ -1793,7 +1791,6 @@
     }
 
     async function syncMessagesFromSB() {
-      if (hasLocalData('od_portfolio_messages')) { console.log('[Supabase] syncMessages: local data exists, skipping'); return }
       try {
         const data = await sbGet('/rest/v1/portfolio_messages?select=*&order=created_at.desc');
         if (data && data.length > 0) {
