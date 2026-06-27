@@ -1,0 +1,11 @@
+{
+  "kind": "critique-panel",
+  "score": 5,
+  "axes": {
+    "clarity":      { "score": 5, "notes": "Contato com layout claro: sidebar preta vertical com 'CONTATO', formulário minimalista à direita, ícone WhatsApp outline no rodapé. Redes sociais como pills monochrome. 7 breakpoints responsivos (1024/900/768/600/480/430/390/360px)." },
+    "hierarchy":    { "score": 5, "notes": "Formulário como elemento principal na área branca, WhatsApp icon como CTA secundário. Social buttons na parte inferior. Mobile: sidebar vira horizontal, tudo empilhado." },
+    "typography":   { "score": 5, "notes": "Nike display/body system intacto. Labels uppercase tracking fechado. Escalas fluidas com clamp() nos textos." },
+    "motion":       { "score": 5, "notes": "Hover social buttons com background swap suave. Mobile breakpoints colapsam sidebar para horizontal 40px. Overlay com backdrop-filter blur." },
+    "brand":        { "score": 5, "notes": "Nike monochrome mantido em todas as telas. Social buttons outline preto + hover fill. body/html com overflow-x:hidden evita scroll horizontal." }
+  }
+}
