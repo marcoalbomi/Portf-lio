@@ -481,6 +481,76 @@
       border-color: rgba(255,255,255,0.4);
     }
 
+    /* ── Overlay sidebar layout (desktop only) ── */
+    .overlay-split {
+      display: flex;
+      flex-direction: column;
+      max-width: 100%;
+      margin: 0 auto;
+      min-height: 100%;
+    }
+    @media (min-width: 1024px) {
+      .overlay-split {
+        flex-direction: row;
+        align-items: flex-start;
+        max-width: 1400px;
+        padding: 60px 40px 80px;
+        gap: 60px;
+      }
+      .overlay-sidebar {
+        position: sticky;
+        top: 60px;
+        flex: 0 0 300px;
+        max-width: 300px;
+        padding-bottom: 40px;
+      }
+      .overlay-sidebar .project-header {
+        padding: 0;
+        max-width: 100%;
+      }
+      .overlay-sidebar .project-header h1 {
+        font-size: clamp(22px, 2.2vw, 36px);
+      }
+      .overlay-sidebar-nav {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 40px;
+        padding-top: 32px;
+        border-top: 1px solid rgba(255,255,255,0.12);
+      }
+      .overlay-sidebar-nav .next-project-card {
+        max-width: 100%;
+        margin: 0;
+      }
+      .overlay-sidebar-nav .back-home-btn {
+        align-self: flex-start;
+      }
+      .overlay-main {
+        flex: 1;
+        min-width: 0;
+      }
+      .overlay-main .overlay-stack {
+        margin-top: 0;
+      }
+      .overlay-main .overlay-footer {
+        display: none;
+      }
+      .overlay-stack .stack-text {
+        padding: 32px 0;
+      }
+      .overlay-stack .stack-embed {
+        padding: 0;
+      }
+      .overlay-stack .stack-link {
+        padding: 0;
+      }
+      .overlay-stack a.download-link {
+        justify-content: center;
+        padding: 20px;
+      }
+    }
+
     /* ── Sobre split layout (justinesoulie.fr inspired) ── */
     .sobre-split {
       display: flex;
@@ -1154,6 +1224,11 @@
       .carousel-card { width: 240px; margin-right: 20px; }
       .card-label { font-size: 14px; margin-top: 40px; }
       .admin-projects-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+    }
+
+    @media (max-width: 1023px) {
+      .overlay-sidebar-nav { display: none; }
+      .overlay-main .overlay-footer { display: flex !important; }
     }
 
     @media (max-width: 768px) {
@@ -2590,32 +2665,54 @@ function du2b(d){const m=d.match(/^data:(.*?)(;base64)?,(.*)$/);if(!m)return nul
       }
 
       body.innerHTML = `
-        <div class="project-header">
-          <span class="project-tag">${esc(p.tag)}</span>
-          <h1>${esc(p.title)}</h1>
-          <p class="project-desc">${esc(p.longDesc)}</p>
-          <div class="project-meta">
-            <span><strong>Função</strong> ${esc(p.role)}</span>
-            <span><strong>Ano</strong> ${esc(p.ano)}</span>
-            <span><strong>Ferramentas</strong> ${esc(p.tools)}</span>
-          </div>
-        </div>
-        ${stackHtml}
-        <div class="overlay-footer">
-          <div class="next-project-card" onclick="openProject('${esc(nextProj.id)}')">
-            <div class="next-cover"${nextCover ? ` style="background-image:url('${esc(nextCover)}')"` : ` style="background:var(--surface)"`}></div>
-            <div class="next-info">
-              <span class="next-label">Próximo Projeto</span>
-              <span class="next-title">${esc(nextProj.title)}</span>
+        <div class="overlay-split">
+          <aside class="overlay-sidebar">
+            <div class="project-header">
+              <span class="project-tag">${esc(p.tag)}</span>
+              <h1>${esc(p.title)}</h1>
+              <p class="project-desc">${esc(p.longDesc)}</p>
+              <div class="project-meta">
+                <span><strong>Função</strong> ${esc(p.role)}</span>
+                <span><strong>Ano</strong> ${esc(p.ano)}</span>
+                <span><strong>Ferramentas</strong> ${esc(p.tools)}</span>
+              </div>
             </div>
-            <div class="next-arrow">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:20px;height:20px"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+            <div class="overlay-sidebar-nav">
+              <div class="next-project-card" onclick="openProject('${esc(nextProj.id)}')">
+                <div class="next-cover"${nextCover ? ` style="background-image:url('${esc(nextCover)}')"` : ` style="background:var(--surface)"`}></div>
+                <div class="next-info">
+                  <span class="next-label">Próximo Projeto</span>
+                  <span class="next-title">${esc(nextProj.title)}</span>
+                </div>
+                <div class="next-arrow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:20px;height:20px"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                </div>
+              </div>
+              <button class="back-home-btn" onclick="closeOverlay()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:16px;height:16px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                Voltar para tela inicial
+              </button>
             </div>
-          </div>
-          <button class="back-home-btn" onclick="closeOverlay()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:16px;height:16px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            Voltar para tela inicial
-          </button>
+          </aside>
+          <main class="overlay-main">
+            ${stackHtml}
+            <div class="overlay-footer">
+              <div class="next-project-card" onclick="openProject('${esc(nextProj.id)}')">
+                <div class="next-cover"${nextCover ? ` style="background-image:url('${esc(nextCover)}')"` : ` style="background:var(--surface)"`}></div>
+                <div class="next-info">
+                  <span class="next-label">Próximo Projeto</span>
+                  <span class="next-title">${esc(nextProj.title)}</span>
+                </div>
+                <div class="next-arrow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:20px;height:20px"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+                </div>
+              </div>
+              <button class="back-home-btn" onclick="closeOverlay()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:16px;height:16px"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                Voltar para tela inicial
+              </button>
+            </div>
+          </main>
         </div>
       `;
       document.getElementById('overlay').classList.add('open');
