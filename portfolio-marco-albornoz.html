@@ -923,10 +923,16 @@
       font-size: 14px; display: grid; place-items: center;
       cursor: pointer; transition: background var(--motion-fast);
     }
+    .admin-card-actions .btn-drag { cursor: grab; font-size: 16px; line-height: 1; }
+    .admin-card-actions .btn-drag:active { cursor: grabbing; }
     .admin-card-actions .btn-edit:hover { background: #333; }
     .admin-card-actions .btn-del:hover { background: var(--danger); }
+    .admin-card-actions .btn-drag:hover { background: #444; }
     .admin-card-actions .btn-edit svg { width: 15px; height: 15px; }
     .admin-card-actions .btn-del svg { width: 15px; height: 15px; }
+    .admin-card-actions .btn-drag svg { width: 15px; height: 15px; }
+    .admin-project-card.dragging { opacity: .4; outline: 2px dashed var(--accent); outline-offset: -2px; }
+    .admin-project-card.drag-over { border-top: 3px solid var(--accent); }
 
     /* ── Admin empty state ── */
     .admin-empty {
@@ -2272,6 +2278,45 @@ function resolveMediaUrl(item) {
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
 
+    function makeProjectsSortable(){
+      var container=document.getElementById('adminBody');
+      if(!container)return;
+      var dragIdx=null;
+      container.addEventListener('dragstart',function(e){
+        var card=e.target.closest('.admin-project-card');
+        if(!card||!e.target.closest('.btn-drag')){e.preventDefault();return}
+        dragIdx=parseInt(card.dataset.projectIdx);
+        card.classList.add('dragging');
+        e.dataTransfer.effectAllowed='move';
+        e.dataTransfer.setData('text/plain',dragIdx)
+      });
+      container.addEventListener('dragover',function(e){
+        var card=e.target.closest('.admin-project-card');
+        if(!card||dragIdx===null)return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect='move';
+        container.querySelectorAll('.admin-project-card').forEach(function(c){c.classList.remove('drag-over')});
+        var rect=card.getBoundingClientRect();
+        var mid=rect.top+rect.height/2;
+        if(e.clientY>mid)card.classList.add('drag-over')
+      });
+      container.addEventListener('drop',function(e){
+        var card=e.target.closest('.admin-project-card');
+        if(!card||dragIdx===null){e.preventDefault();return}
+        e.preventDefault();
+        container.querySelectorAll('.admin-project-card').forEach(function(c){c.classList.remove('drag-over')});
+        var dropIdx=parseInt(card.dataset.projectIdx);
+        if(dragIdx===dropIdx)return;
+        var item=projects.splice(dragIdx,1)[0];
+        projects.splice(dropIdx,0,item);
+        saveProjects()
+      });
+      container.addEventListener('dragend',function(){
+        dragIdx=null;
+        container.querySelectorAll('.admin-project-card').forEach(function(c){c.classList.remove('dragging','drag-over')})
+      })
+    }
+
     function buildSlides() {
       const container = document.getElementById('carouselContainer');
       container.innerHTML = '';
@@ -2849,11 +2894,11 @@ function resolveMediaUrl(item) {
       if (projects.length === 0) {
         html += '<div class="admin-empty"><div class="empty-icon">⬡</div><h3>Nenhum projeto ainda</h3><p>Adicione seu primeiro projeto clicando em "Novo Projeto".</p></div>';
       } else {
-        projects.forEach(p => {
+        projects.forEach((p,i) => {
           const cover = resolveCoverLocal(p) || (p.media && p.media.length > 0 && p.media[0].type.startsWith('image/') ? resolveMediaUrl(p.media[0]) : null);
           const mediaCount = p.media ? p.media.length : 0;
           html += `
-            <div class="admin-project-card">
+            <div class="admin-project-card" draggable="true" data-project-idx="${i}">
               <div class="card-cover">${cover ? `<img src="${esc(cover)}" alt="" />` : `<span style="font-size:42px;opacity:.2">${String(p.id+1).padStart(2,'0')}</span>`}</div>
               <div class="card-body">
                 <h3>${esc(p.title)}</h3>
@@ -2861,6 +2906,9 @@ function resolveMediaUrl(item) {
                 <div class="card-meta"><span>${mediaCount} mídia(s)</span>${p.ano ? `<span>${esc(p.ano)}</span>` : ''}</div>
               </div>
               <div class="admin-card-actions">
+                <button class="btn-drag" title="Arrastar para reordenar">
+                  <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                </button>
                 <button class="btn-edit" onclick="editProject(${p.id},true)" title="Editar">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
@@ -2946,6 +2994,7 @@ function resolveMediaUrl(item) {
       html += '</div>';
 
       body.innerHTML = html;
+      if(document.querySelector('.admin-project-card')){makeProjectsSortable()}
     }
 
     /* ── Site Settings ── */
