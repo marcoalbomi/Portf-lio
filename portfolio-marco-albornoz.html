@@ -1690,6 +1690,7 @@
 
     /* Compress a dataUrl image via canvas — maxWidth default 1920px, quality 0.85 */
     function compressImage(dataUrl, maxWidth, quality) {
+      if (dataUrl && dataUrl.startsWith('data:image/gif')) return Promise.resolve(dataUrl);
       maxWidth = maxWidth || 1920;
       quality = quality || 0.85;
       return new Promise(function(resolve) {
