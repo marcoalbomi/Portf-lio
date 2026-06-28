@@ -381,10 +381,15 @@
       flex: 1 1 80px;
       min-width: 0;
       width: auto;
-      height: 250px;
+      height: 80px;
       object-fit: cover;
       display: block;
       background: transparent;
+    }
+    @media (min-width: 768px) {
+      .overlay-stack .stack-gallery img {
+        height: 180px;
+      }
     }
     @media (min-width: 1024px) {
       .overlay-stack .stack-gallery img {
