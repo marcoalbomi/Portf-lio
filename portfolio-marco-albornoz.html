@@ -2218,12 +2218,10 @@ function resolveMediaUrl(item) {
         if (saved) {
           projects = JSON.parse(saved).map((p, i) => ({ ...p, id: i }));
         } else {
-          projects = DEFAULT_PROJECTS.map((p, i) => ({ ...p, id: i }));
-          saveProjects();
+          projects = [];
         }
       } catch {
-        projects = DEFAULT_PROJECTS.map((p, i) => ({ ...p, id: i }));
-        saveProjects();
+        projects = [];
       }
       loadConfig();
       updateLogo();
