@@ -374,14 +374,19 @@
       white-space: pre-wrap;
     }
     .overlay-stack .stack-gallery {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
       gap: 0;
     }
+    @media (min-width: 640px) {
+      .overlay-stack .stack-gallery {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
     .overlay-stack .stack-gallery img {
+      width: 100%;
       height: 280px;
-      width: auto;
-      flex: 0 1 auto;
+      object-fit: cover;
       display: block;
     }
     .overlay-stack .stack-embed {
