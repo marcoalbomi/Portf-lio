@@ -1836,13 +1836,14 @@
       return base;
     }
 
+    function sortByYear(arr){if(!arr||!arr.length)return arr||[];return arr.slice().sort(function(a,b){var ay=parseInt(a.ano,10)||0,by=parseInt(b.ano,10)||0;if(by!==ay)return by-ay;return(a.id||0)-(b.id||0)})}
     function hasLocalData(k) { try { var v = localStorage.getItem(k); return v && v !== '[]' && v !== '{}' } catch { return false } }
     async function syncProjectsFromSB() {
       console.log('[Supabase] syncProjectsFromSB() — fetching from server...');
       try {
         const data = await sbGet('/rest/v1/portfolio_projects?select=*&order=sort_order.asc');
         if (data && data.length > 0) {
-          const mapped = data.map(remapProjectFromDB);
+          const mapped = sortByYear(data.map(remapProjectFromDB));
           localStorage.setItem('od_portfolio_projects', JSON.stringify(mapped));
           localStorage.setItem('od_sb_projects_ok', '1');
           console.log('[Supabase] loaded', mapped.length, 'projects from server');
@@ -2223,7 +2224,7 @@ function du2b(d){const m=d.match(/^data:(.*?)(;base64)?,(.*)$/);if(!m)return nul
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          projects = JSON.parse(saved).map((p, i) => ({ ...p, id: i }));
+          projects = sortByYear(JSON.parse(saved)).map((p, i) => ({ ...p, id: i }));
         } else {
           projects = [];
         }
