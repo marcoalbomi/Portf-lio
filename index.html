@@ -374,20 +374,14 @@
       white-space: pre-wrap;
     }
     .overlay-stack .stack-gallery {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      display: flex;
+      flex-direction: column;
       gap: 0;
-    }
-    @media (min-width: 640px) {
-      .overlay-stack .stack-gallery {
-        grid-template-columns: repeat(3, 1fr);
-      }
     }
     .overlay-stack .stack-gallery img {
       width: 100%;
       height: auto;
       display: block;
-    }
     }
     .overlay-stack .stack-embed {
       padding: 24px;
