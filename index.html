@@ -375,13 +375,20 @@
     }
     .overlay-stack .stack-gallery {
       display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
       gap: 0;
     }
     .overlay-stack .stack-gallery img {
-      width: 100%;
-      height: auto;
+      flex: 1 1 80px;
+      min-width: 0;
+      height: 250px;
+      object-fit: cover;
       display: block;
+    }
+    @media (min-width: 1024px) {
+      .overlay-stack .stack-gallery img {
+        height: 350px;
+      }
     }
     .overlay-stack .stack-embed {
       padding: 24px;
