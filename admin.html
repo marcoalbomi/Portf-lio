@@ -825,19 +825,19 @@ function rpl(){
   makeProjectsSortable()
 }
 function eh(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
-function makeProjectsSortable(){
-  const container=document.getElementById('projectList');
-  if(!container)return;
+function makeDragHandler(){
+  var container=document.getElementById('projectList');
+  if(!container)return function(){};
   var dragIdx=null;
-  container.addEventListener('dragstart',function(e){
+  function onDragStart(e){
     var card=e.target.closest('.project-grid-card');
     if(!card||!e.target.closest('.btn-drag')){e.preventDefault();return}
     dragIdx=parseInt(card.dataset.projectIdx);
     card.classList.add('dragging');
     e.dataTransfer.effectAllowed='move';
-    e.dataTransfer.setData('text/plain',dragIdx)
-  });
-  container.addEventListener('dragover',function(e){
+    e.dataTransfer.setData('text/plain',String(dragIdx))
+  }
+  function onDragOver(e){
     var card=e.target.closest('.project-grid-card');
     if(!card||dragIdx===null)return;
     e.preventDefault();
@@ -846,8 +846,8 @@ function makeProjectsSortable(){
     var rect=card.getBoundingClientRect();
     var mid=rect.top+rect.height/2;
     if(e.clientY>mid)card.classList.add('drag-over')
-  });
-  container.addEventListener('drop',function(e){
+  }
+  function onDrop(e){
     var card=e.target.closest('.project-grid-card');
     if(!card||dragIdx===null){e.preventDefault();return}
     e.preventDefault();
@@ -856,12 +856,21 @@ function makeProjectsSortable(){
     if(dragIdx===dropIdx)return;
     var item=projects.splice(dragIdx,1)[0];
     projects.splice(dropIdx,0,item);
-    sp()
-  });
-  container.addEventListener('dragend',function(){
+    sp();rpl()
+  }
+  function onDragEnd(){
     dragIdx=null;
     container.querySelectorAll('.project-grid-card').forEach(function(c){c.classList.remove('dragging','drag-over')})
-  })
+  }
+  container.addEventListener('dragover',onDragOver);
+  container.addEventListener('drop',onDrop);
+  container.addEventListener('dragend',onDragEnd);
+  return onDragStart
+}
+var _dragStartHandler=makeDragHandler();
+function makeProjectsSortable(){
+  var cards=document.querySelectorAll('#projectList .project-grid-card');
+  cards.forEach(function(c){c.addEventListener('dragstart',_dragStartHandler)})
 }
 
 /* â”€â”€ E D I T O R (Behance-style) â”€â”€ */
