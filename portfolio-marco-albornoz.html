@@ -373,14 +373,15 @@
       white-space: pre-wrap;
     }
     .overlay-stack .stack-gallery {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      gap: 4px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
     }
     .overlay-stack .stack-gallery img {
-      width: 100%;
-      height: auto;
-      aspect-ratio: 1;
+      flex: 1 1 auto;
+      min-width: 0;
+      max-height: 300px;
+      width: auto;
       object-fit: cover;
       display: block;
     }
